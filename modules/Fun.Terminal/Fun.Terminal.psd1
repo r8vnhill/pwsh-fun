@@ -1,3 +1,5 @@
+# modules\Fun.Terminal\Fun.Terminal.psd1
+
 #
 # Module manifest for module 'Fun.Terminal'
 #

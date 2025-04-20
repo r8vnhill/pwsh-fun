@@ -1,18 +1,5 @@
-function Verb-Noun {
-    [CmdletBinding()]
-    param (
-        
-    )
-    
-    begin {
-        echo "Begin block"       
-    }
-    
-    process {
-        
-    }
-    
-    end {
-        
-    }
-}
+# modules\Fun.Terminal\Fun.Terminal.psm1
+
+. "$PSScriptRoot\public\Test-Command.ps1"
+
+Export-ModuleMember -Function Test-Command
