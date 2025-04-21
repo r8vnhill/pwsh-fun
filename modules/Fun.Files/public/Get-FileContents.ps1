@@ -103,6 +103,7 @@ Scans both directories from pipeline input and returns all files found.
 #>
 function Get-FileContents {
     [Alias('gfc')]
+    [OutputType([FileContent])]
     [CmdletBinding()]
     param (
         [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]

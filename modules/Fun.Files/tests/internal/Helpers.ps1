@@ -98,6 +98,7 @@ function New-TestDirectoryWithFiles {
 
     return @{
         Base  = $base
+        Sub   = $sub
         File1 = $f1
         File2 = $f2
     }

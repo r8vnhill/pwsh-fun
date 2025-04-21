@@ -1,56 +1,77 @@
 <#
 .SYNOPSIS
-Applies a script block to each file in a directory tree, filtered by regular expressions.
+Applies a script block to each file in one or more directory trees, filtered by regular expressions.
 
 .DESCRIPTION
-`Invoke-FileTransform` recursively enumerates all files under the specified `$Path`, filters them using regular expressions, and invokes a custom script block (`$FileProcessor`) for each file.
+`Invoke-FileTransform` recursively enumerates all files under the specified directories in `$Path`, filters them using regular expressions, and invokes a custom script block (`$FileProcessor`) for each matching file.
 
-Each file is passed along with a formatted header containing its full path.
-This function is useful for performing transformations, inspections, or reporting on selected files.
+For every file found, the function passes:
+1. The file as a `[System.IO.FileInfo]` object.
+2. A header string with the full file path.
+
+This function is ideal for processing, inspecting, transforming, or displaying file contents with fine-grained control over inclusion and exclusion patterns.
 
 .PARAMETER Path
-The root directory to search for files.
-The path must exist and be a directory.
+One or more root directories to search for files.
+Each path must exist and be a directory.
+Supports pipeline input and property binding.
 
 .PARAMETER FileProcessor
 A script block that is called for each matching file.
-Receives two arguments:
-1. The file as a [System.IO.FileInfo] object
-2. A header string containing the full path of the file
+It receives two arguments:
+1. The file as a [System.IO.FileInfo] object.
+2. A string header containing the full path of the file.
 
 .PARAMETER IncludeRegex
-An array of regular expressions to determine which files to include.
+An array of regular expressions that determine which files to include.
 Defaults to `'.*'`, which includes all files.
 
 .PARAMETER ExcludeRegex
 An array of regular expressions to exclude specific files.
-Exclusions take precedence over inclusions.
+Exclusion takes precedence over inclusion.
 
 .EXAMPLE
-Invoke-FileTransform -Path './src' -IncludeRegex '.*\.ps1$' -ExcludeRegex 'test/' -FileProcessor {
+Invoke-FileTransform -Path './src', './lib' -IncludeRegex '.*\.ps1$' -ExcludeRegex 'test/' -FileProcessor {
     param ($file, $header)
     Write-Host $header
     Get-Content $file -Raw
 }
 
-Processes all `.ps1` files under `./src` except those in `test/`, printing their path and contents.
+Processes all `.ps1` files under `./src` and `./lib`, excluding any paths matching `test/`, printing their paths and contents.
+
+.EXAMPLE
+'./scripts', './examples' | Invoke-FileTransform -IncludeRegex '.*\.ps1$' -ExcludeRegex 'experimental/' -FileProcessor {
+    param ($file, $header)
+    "$header`n$([IO.File]::ReadAllText($file.FullName))" | Set-Clipboard
+}
+
+Takes an array of paths from the pipeline and copies matching `.ps1` files (excluding those in `experimental/`) to the clipboard.
+
+.EXAMPLE
+Get-ChildItem -Path './projects' -Directory | Select-Object -ExpandProperty FullName |
+    Invoke-FileTransform -IncludeRegex '.*\.md$' -FileProcessor {
+        param ($file, $header)
+        Write-Host "$header`n$($file.Length) bytes"
+    }
+
+Uses `Get-ChildItem` to collect directories dynamically and invokes the processor on all `.md` files, printing their size with a header.
 
 .OUTPUTS
-Depends on the behavior of the `$FileProcessor` script block.
+The output depends on the behavior of the `$FileProcessor` script block.
 
 .NOTES
-- Uses `Resolve-ValidDirectory` to validate that the path exists and is a directory.
-- Uses `Get-FilteredFiles` internally to apply inclusion and exclusion filters.
-- Path matching is performed on normalized relative paths (with `/` separators).
+- Uses `Resolve-ValidDirectory` to validate that each path exists and is a directory.
+- Uses `Get-FilteredFiles` to apply filtering rules based on include/exclude patterns.
+- Pattern matching is applied to normalized relative paths (using forward slashes).
 #>
 function Invoke-FileTransform {
     [Alias('ift')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Low')]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [Alias('Directory', 'Root', 'Folder')]
-        [string]$Path,
+        [string[]]$Path,
 
         [Alias('Action', 'ProcessFile', 'Do')]
         [scriptblock]$FileProcessor = { $_ },
@@ -62,14 +83,18 @@ function Invoke-FileTransform {
         [string[]]$ExcludeRegex = @()
     )
 
-    $root = Resolve-ValidDirectory -Path $Path -Cmdlet $PSCmdlet
+    process {
+        foreach ($p in $Path) {
+            $root = Resolve-ValidDirectory -Path $p -Cmdlet $PSCmdlet
 
-    Get-FilteredFiles -RootPath $root `
-        -IncludeRegex $IncludeRegex `
-        -ExcludeRegex $ExcludeRegex `
-    | ForEach-Object {
-        $header = "File: $($_.FullName)"
-        & $FileProcessor $_ $header
+            Get-FilteredFiles -RootPath $root `
+                -IncludeRegex $IncludeRegex `
+                -ExcludeRegex $ExcludeRegex |
+            ForEach-Object {
+                $header = "File: $($_.FullName)"
+                & $FileProcessor $_ $header
+            }
+        }
     }
 }
 

@@ -5,28 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] - TBD
 
 ### Added
 
-- New function `Get-FilteredFiles` for regex-based file inclusion and exclusion.
-- New internal helpers: `Resolve-ValidDirectory`, `ShouldIncludeFile`, and `Get-InvokedFilePathsForTest` for validation and testability.
-- `IncludeRegex` and `ExcludeRegex` parameters to `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents` for consistent, advanced filtering.
-- Utility functions `New-TestDirectoryWithFiles` and `Remove-TestEnvironment` for improved test setup and teardown.
-- New internal test script `Helpers.ps1` to centralize reusable test utilities.
-- Additional tests for `Get-FileContents`, `Invoke-FileTransform`, and `Show-FileContents` covering filtering, directory validation, and error cases.
+- Function `Get-FilteredFiles` for regex-based file inclusion and exclusion.
+- Internal helpers for validation and test support:
+  - `Resolve-ValidDirectory`, `ShouldIncludeFile`, `Get-InvokedFilePathsForTest`
+  - `New-TestDirectoryWithFiles`, `Remove-TestEnvironment`
+- Centralized test utilities in `Helpers.ps1`.
+- `IncludeRegex` and `ExcludeRegex` parameters added to:
+  - `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents` for consistent, advanced filtering.
+- `Invoke-FileTransform` now supports:
+  - Multiple paths via array or pipeline input.
+  - Enhanced docstring and parameter annotations for discoverability.
+- Declared `[OutputType([FileContent])]` on `Get-FileContents`.
 
 ### Changed
 
-- Refactored `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents` to use regular-expression-based filtering instead of wildcard patterns.
-- Standardized parameter names and aliases across all public commands for consistency (`IncludeRegex`, `ExcludeRegex`).
-- Simplified internal logic in `Get-FileContents` by delegating file selection to `Invoke-FileTransform`.
-- Modernized test structure by importing `.psd1` instead of `.psm1`, with improved setup validation in `Setup.ps1`.
-- Updated `README.md` usage examples to reflect regex-based filtering and revised descriptions for clarity and accuracy.
+- Replaced wildcard-based filters with regex-based filtering in all core functions.
+- Standardized parameter names and aliases across public functions.
+- Refactored `Get-FileContents` to delegate filtering to `Invoke-FileTransform`.
+- Refactored test bootstrapping to import `.psd1` instead of `.psm1`, with setup validation in `Setup.ps1`.
+- Improved test coverage:
+  - Added checks for content accuracy and edge case handling.
+- Expanded `README.md` with a table of contents, detailed examples, and modern usage patterns.
 
 ### Renamed
 
-- Renamed `Assertions.psm1` back to `Assertions.ps1` to reflect actual script structure and resolve module consistency issues.
+- Renamed `Assertions.psm1` to `Assertions.ps1` to reflect actual script structure and ensure module consistency.
 
 <!-- ### Added
 

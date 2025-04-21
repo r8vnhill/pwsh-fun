@@ -9,11 +9,12 @@ Describe 'Get-FileContents' {
         $files = New-TestDirectoryWithFiles -BaseName 'GetFileContentsTest'
 
         # Define rutas y contenidos esperados
-        $script:tempDir    = $files.Base
-        $script:filePath1  = $files.File1
-        $script:filePath2  = $files.File2
-        $script:content1   = 'Hello, World!'
-        $script:content2   = 'Another file here.'
+        $script:tempDir = $files.Base
+        $script:filePath1 = $files.File1
+        $script:filePath2 = $files.File2
+        $script:content1 = 'Hello, World!'
+        $script:content2 = 'Another file here.'
+        $script:subDir = $files.Sub
     }
 
     BeforeEach {
@@ -22,8 +23,8 @@ Describe 'Get-FileContents' {
         New-Item -Path $Script:subDir -ItemType Directory -Force | Out-Null
 
         # Write known content to test files
-        Set-Content -Path $Script:filePath1 -Value $Script:content1
-        Set-Content -Path $Script:filePath2 -Value $Script:content2
+        Set-Content -Path $Script:filePath1 -Value $Script:content1 -NoNewline
+        Set-Content -Path $Script:filePath2 -Value $Script:content2 -NoNewline
     }
 
     AfterAll {
@@ -43,6 +44,9 @@ Describe 'Get-FileContents' {
         $paths = $results | ForEach-Object { $_.Path }
         $paths | Should -Contain $Script:filePath1
         $paths | Should -Contain $Script:filePath2
+        $results | Where-Object { $_.Path -eq $Script:filePath1 } | ForEach-Object {
+            $_.ContentText | Should -BeExactly $Script:content1
+        }
     }
 
     It 'filters files by extension using IncludePatterns' {
@@ -51,7 +55,7 @@ Describe 'Get-FileContents' {
         Set-Content -Path $excludedFile -Value 'Should be excluded'
 
         # Only include .txt files
-        $results = Get-FileContents -Path $Script:tempDir -IncludePatterns '*.txt'
+        $results = Get-FileContents -Path $Script:tempDir -IncludePatterns '.*\.txt$'
 
         # Only the .txt files should be returned
         $results.Count | Should -Be 2
@@ -59,6 +63,9 @@ Describe 'Get-FileContents' {
         $paths | Should -Contain $Script:filePath1
         $paths | Should -Contain $Script:filePath2
         $paths | Should -Not -Contain $excludedFile
+        $results | Where-Object { $_.Path -eq $Script:filePath1 } | ForEach-Object {
+            $_.ContentText | Should -BeExactly $Script:content1
+        }        
     }
 
     It 'excludes files by extension using ExcludePatterns' {
@@ -67,7 +74,7 @@ Describe 'Get-FileContents' {
         Set-Content -Path $excludedFile -Value 'This should be excluded'
 
         # Exclude .log files
-        $results = Get-FileContents -Path $Script:tempDir -ExcludePatterns '*.log'
+        $results = Get-FileContents -Path $Script:tempDir -ExcludePatterns '.*.log'
 
         # Confirm only the two original files remain
         $results.Count | Should -Be 2
@@ -75,6 +82,9 @@ Describe 'Get-FileContents' {
         $paths | Should -Contain $Script:filePath1
         $paths | Should -Contain $Script:filePath2
         $paths | Should -Not -Contain $excludedFile
+        $results | Where-Object { $_.Path -eq $Script:filePath1 } | ForEach-Object {
+            $_.ContentText | Should -BeExactly $Script:content1
+        }
     }
 
     It 'throws if path does not exist (delegated)' {

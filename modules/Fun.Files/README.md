@@ -2,6 +2,27 @@
 
 **Fun.Files** is a PowerShell module for exploring, transforming, and copying file contents in a structured and flexible way. It’s ideal for auditing files, gathering snippets, scripting transformations, or preparing content for pasting into editors or issue trackers.
 
+## Table of Contents
+
+- [📁 Fun.Files](#-funfiles)
+  - [Table of Contents](#table-of-contents)
+  - [✨ Features](#-features)
+  - [📦 Installation](#-installation)
+  - [🧩 Commands](#-commands)
+    - [`Invoke-FileTransform`](#invoke-filetransform)
+      - [🔧 Basic usage](#-basic-usage)
+      - [🎯 Filtering with multiple patterns](#-filtering-with-multiple-patterns)
+      - [📂 Multiple directories](#-multiple-directories)
+      - [🔁 With pipeline input](#-with-pipeline-input)
+      - [🧪 Transform and overwrite](#-transform-and-overwrite)
+    - [`Get-FilteredFiles`](#get-filteredfiles)
+    - [`Show-FileContents`](#show-filecontents)
+    - [`Get-FileContents`](#get-filecontents)
+    - [`Copy-FileContents`](#copy-filecontents)
+  - [📄 License](#-license)
+  - [👨‍💻 Author](#-author)
+  - [📬 Contributing](#-contributing)
+
 ## ✨ Features
 
 - 📄 Recursively process files with customizable transformations
@@ -14,14 +35,28 @@
 From `pwsh-fun` root:
 
 ```powershell
-Import-Module "$PWD/modules/Fun.Files/Fun.Files.psd1"
+Import-Module "./modules/Fun.Files/Fun.Files.psd1"
 ```
 
 ## 🧩 Commands
 
 ### `Invoke-FileTransform`
 
-The backbone of the module: recursively apply a script block to all files in a directory.
+Recursively applies a script block to all matching files in one or more directories. You can filter files using regular expressions on their relative paths.
+
+#### 🔧 Basic usage
+
+```powershell
+Invoke-FileTransform -Path './logs' -FileProcessor {
+    param ($file, $header)
+    Write-Host $header
+    Get-Content $file -Raw
+}
+```
+
+Prints the full content of every file under `./logs`, each prefixed with its full path.
+
+#### 🎯 Filtering with multiple patterns
 
 ```powershell
 Invoke-FileTransform -Path './logs' `
@@ -34,7 +69,42 @@ Invoke-FileTransform -Path './logs' `
     }
 ```
 
-This will process `.log` and `.txt` files under `./logs`, but skip any files inside an `archive/` folder or starting with `old_`.
+Processes `.log` and `.txt` files but skips any located in `archive/` folders or with names starting with `old_`.
+
+#### 📂 Multiple directories
+
+```powershell
+Invoke-FileTransform -Path './src', './tests' -IncludeRegex '.*\.ps1$' -FileProcessor {
+    param ($file, $header)
+    "$header`n$([IO.File]::ReadAllText($file.FullName))" | Set-Clipboard
+}
+```
+
+Copies all PowerShell scripts from `./src` and `./tests` to the clipboard, prepending each with its full path. (This is what [`Copy-FileContents`](#copy-filecontents) does)
+
+#### 🔁 With pipeline input
+
+```powershell
+'./docs', './examples' | Invoke-FileTransform -IncludeRegex '.*\.md$' -FileProcessor {
+    param ($file, $header)
+    "$header`n$($file.Length) bytes"
+}
+```
+
+Uses pipeline input to process all Markdown files from multiple directories, printing the file size and path.
+
+#### 🧪 Transform and overwrite
+
+```powershell
+Invoke-FileTransform -Path './notes' -IncludeRegex '.*\.md$' -FileProcessor {
+    param ($file, $header)
+    $text = Get-Content $file -Raw
+    $newText = $text -replace 'TODO', '✅'
+    Set-Content $file.FullName -Value $newText
+}
+```
+
+Searches for `TODO` in all Markdown files and replaces them with ✅.
 
 ### `Get-FilteredFiles`
 
@@ -80,18 +150,6 @@ Useful for:
 - Sharing code snippets
 - Debugging
 - Documentation
-
-## 🧠 Type: `FileContent`
-
-An internal type supporting formatting and clipboard functionality:
-
-```powershell
-[FileContent]::new("path", "File: path", "raw content")
-```
-
-## 🏷 Tags
-
-`files`, `clipboard`, `utils`, `transform`, `text`
 
 ## 📄 License
 
