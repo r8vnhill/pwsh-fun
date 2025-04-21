@@ -1,14 +1,13 @@
 # 📁 Fun.Files
 
-**Fun.Files** is a PowerShell module for exploring, transforming, and copying file contents in a structured and color-enhanced way. It’s ideal for auditing files, gathering snippets, scripting transformations, or preparing content for pasting into editors or issue trackers.
+**Fun.Files** is a PowerShell module for exploring, transforming, and copying file contents in a structured and flexible way. It’s ideal for auditing files, gathering snippets, scripting transformations, or preparing content for pasting into editors or issue trackers.
 
 ## ✨ Features
 
-- 📄 Recursively read and format files as `[FileContent]` objects
-- 🎨 Color-coded display of file headers and content (if supported)
+- 📄 Recursively process files with customizable transformations
+- 🔍 Advanced file filtering using regular-expression-based include/exclude patterns
+- 🔁 Inject custom logic per file using `Invoke-FileTransform`
 - 📋 Copy multiple files’ contents to clipboard with formatting
-- 🔍 Advanced file filtering using wildcard-based include/exclude patterns
-- 🔁 Inject your own logic per file using `Invoke-FileTransform`
 
 ## 📦 Installation
 
@@ -20,9 +19,36 @@ Import-Module "$PWD/modules/Fun.Files/Fun.Files.psd1"
 
 ## 🧩 Commands
 
+### `Invoke-FileTransform`
+
+The backbone of the module: recursively apply a script block to all files in a directory.
+
+```powershell
+Invoke-FileTransform -Path './logs' `
+    -IncludeRegex '.*\.log$', '.*\.txt$' `
+    -ExcludeRegex 'archive/', '^old_' `
+    -FileProcessor {
+        param ($file, $header)
+        Write-Host $header
+        Get-Content $file -Raw
+    }
+```
+
+This will process `.log` and `.txt` files under `./logs`, but skip any files inside an `archive/` folder or starting with `old_`.
+
+### `Get-FilteredFiles`
+
+Returns `[System.IO.FileInfo]` objects for files filtered by regular expressions:
+
+```powershell
+Get-FilteredFiles -RootPath './src' `
+                  -IncludeRegex '.*\.ps1$' `
+                  -ExcludeRegex 'tests/'
+```
+
 ### `Show-FileContents`
 
-Prints all files under a directory with color-coded headers and content blocks.
+Prints all files under a directory with formatted headers and content blocks:
 
 ```powershell
 Show-FileContents -Path './docs'
@@ -30,56 +56,42 @@ Show-FileContents -Path './docs'
 
 ### `Get-FileContents`
 
-Returns `[FileContent]` objects for each matching file, including metadata and raw contents.
+Returns `[FileContent]` objects for matching files:
 
 ```powershell
-Get-FileContents -Path './src' -IncludePatterns '*.ps1' -ExcludePatterns '*tests*'
+Get-FileContents -Path './src' -IncludeRegex '.*\.ps1$' -ExcludeRegex 'tests/'
 ```
 
 Each object contains:
 
-- `Path` – full file path
-- `Header` – formatted string for display
-- `ContentText` – full contents of the file
+- `Path`: full file path
+- `Header`: formatted header string
+- `ContentText`: full contents of the file
 
 ### `Copy-FileContents`
 
-Copies file contents (with headers) to your clipboard, separated by newlines.
+Copies file contents (with headers) to your clipboard:
 
 ```powershell
-Copy-FileContents -Path './src' -IncludePatterns '*.ps1'
+Copy-FileContents -Path './src' -IncludeRegex '.*\.ps1$'
 ```
 
 Useful for:
-- Sending code snippets
+- Sharing code snippets
 - Debugging
-- Creating GitHub issues or documentation
-
-### `Invoke-FileTransform`
-
-The backbone of the module: recursively apply a script block to all files in a directory.
-
-```powershell
-Invoke-FileTransform -Path './logs' -FileProcessor {
-    param ($file, $header)
-    Write-Host $header
-    Get-Content $file -Raw
-}
-```
+- Documentation
 
 ## 🧠 Type: `FileContent`
 
-This internal class powers the formatting and clipboard functionality.
+An internal type supporting formatting and clipboard functionality:
 
 ```powershell
-[FileContent]::new("path", "📄 File: path", "raw content")
+[FileContent]::new("path", "File: path", "raw content")
 ```
-
-You can override `.ToString()` to get a printable version of the file with its header.
 
 ## 🏷 Tags
 
-`files`, `clipboard`, `utils`, `display`, `transform`, `text`
+`files`, `clipboard`, `utils`, `transform`, `text`
 
 ## 📄 License
 
