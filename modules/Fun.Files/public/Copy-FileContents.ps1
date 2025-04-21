@@ -47,14 +47,15 @@ function Copy-FileContents {
         [Alias('Directory', 'Root', 'Folder')]
         [string]$Path = '.',
 
-        [Alias('Include', 'IncludeFile', 'Like')]
-        [string[]]$IncludePatterns = @(),
-        [Alias('Exclude', 'ExcludeFile', 'NotLike')]
-        [string[]]$ExcludePatterns = @()
+        [Alias('Include', 'IncludeFile', 'IncludePatterns', 'Like')]
+        [string[]]$IncludeRegex = @('.*'),
+
+        [Alias('Exclude', 'ExcludeFile', 'ExcludePatterns', 'NotLike')]
+        [string[]]$ExcludeRegex = @()
     )
 
     Get-FileContents -Path $Path `
-        -IncludePatterns $IncludePatterns `
-        -ExcludePatterns $ExcludePatterns | `
+        -IncludeRegex $IncludeRegex `
+        -ExcludeRegex $ExcludeRegex | `
             ForEach-Object { "$($_.Header)`n$($_.ContentText)`n" } | Set-Clipboard
 }

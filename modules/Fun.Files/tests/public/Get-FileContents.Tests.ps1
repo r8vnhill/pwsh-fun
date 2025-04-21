@@ -1,19 +1,19 @@
-# Load shared test setup (e.g., Assert helpers, module imports)
-. "$PSScriptRoot\..\Setup.ps1"
-
-# Ensure the function to test is available; fail early if missing
-Get-Command Get-FileContents -ErrorAction Stop | Out-Null
-
 Describe 'Get-FileContents' {
 
     BeforeAll {
-        # Define test file paths and contents (reused across all test cases)
-        $Script:tempDir   = Join-Path $env:TEMP 'GetFileContentsTest'
-        $Script:subDir    = Join-Path $Script:tempDir 'sub'
-        $Script:filePath1 = Join-Path $Script:tempDir 'file1.txt'
-        $Script:filePath2 = Join-Path $Script:subDir 'file2.txt'
-        $Script:content1  = "Hello, World!"
-        $Script:content2  = "Another file here."
+        # Capture pre-existing modules so we can skip unloading them
+        $script:preloadedModules = Get-Module -Name Fun.Files, Assertions
+        . "$PSScriptRoot\..\Setup.ps1"
+
+        # Crea estructura de archivos de prueba
+        $files = New-TestDirectoryWithFiles -BaseName 'GetFileContentsTest'
+
+        # Define rutas y contenidos esperados
+        $script:tempDir    = $files.Base
+        $script:filePath1  = $files.File1
+        $script:filePath2  = $files.File2
+        $script:content1   = 'Hello, World!'
+        $script:content2   = 'Another file here.'
     }
 
     BeforeEach {
@@ -27,8 +27,9 @@ Describe 'Get-FileContents' {
     }
 
     AfterAll {
-        # Clean up test artifacts after all test cases complete
-        Remove-Item $Script:tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-TestEnvironment `
+            -TempDir $script:tempDir `
+            -PreloadedModules $script:preloadedModules
     }
 
     It 'returns objects with path, header, and content' {
@@ -47,7 +48,7 @@ Describe 'Get-FileContents' {
     It 'filters files by extension using IncludePatterns' {
         # Create an extra file that should be excluded by the filter
         $excludedFile = Join-Path $Script:tempDir 'ignore.md'
-        Set-Content -Path $excludedFile -Value "Should be excluded"
+        Set-Content -Path $excludedFile -Value 'Should be excluded'
 
         # Only include .txt files
         $results = Get-FileContents -Path $Script:tempDir -IncludePatterns '*.txt'
@@ -63,7 +64,7 @@ Describe 'Get-FileContents' {
     It 'excludes files by extension using ExcludePatterns' {
         # Create an extra file with .log extension, which should be excluded
         $excludedFile = Join-Path $Script:tempDir 'skip.log'
-        Set-Content -Path $excludedFile -Value "This should be excluded"
+        Set-Content -Path $excludedFile -Value 'This should be excluded'
 
         # Exclude .log files
         $results = Get-FileContents -Path $Script:tempDir -ExcludePatterns '*.log'
@@ -83,7 +84,7 @@ Describe 'Get-FileContents' {
 
     It 'throws if path is a file (delegated)' {
         # Calling Get-FileContents on a file (not a directory) should fail
-        Set-Content -Path $Script:filePath1 -Value "content"
+        Set-Content -Path $Script:filePath1 -Value 'content'
         { Get-FileContents -Path $Script:filePath1 } | Should -Throw
     }
 }

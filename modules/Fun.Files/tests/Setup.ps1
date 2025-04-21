@@ -1,7 +1,27 @@
-# Dot-source internal test helper assertions (e.g., Assert-ThrowsWithType)
+# Load internal test helper assertions
 . "$PSScriptRoot\internal\Assertions.ps1"
+. "$PSScriptRoot\internal\Helpers.ps1"
 
-# Import the module under test, forcibly reloading it to ensure changes are reflected
-#   -Force ensures any previous version of the module is replaced
-#   -ErrorAction Stop ensures the test fails immediately if the module cannot be loaded
-Import-Module "$PSScriptRoot\..\Fun.Files.psm1" -Force -ErrorAction Stop
+# Resolve and import the module under test
+$modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\Fun.Files.psd1'
+
+if (-not (Test-Path $modulePath)) {
+    throw "❌ Module path '$modulePath' not found."
+}
+
+Import-Module $modulePath -Force -ErrorAction Stop
+
+# Verify required commands are available
+$requiredCommands = @(
+    'Invoke-FileTransform',
+    'Get-FileContents',
+    'Show-FileContents'
+)
+
+foreach ($cmd in $requiredCommands) {
+    try {
+        Get-Command $cmd -ErrorAction Stop | Out-Null
+    } catch {
+        throw "❌ Expected command '$cmd' not found after importing module."
+    }
+}

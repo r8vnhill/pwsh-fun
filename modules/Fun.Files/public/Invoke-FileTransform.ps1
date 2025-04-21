@@ -55,8 +55,10 @@ function Invoke-FileTransform {
         [Alias('Action', 'ProcessFile', 'Do')]
         [scriptblock]$FileProcessor = { $_ },
 
+        [Alias('Include', 'IncludeFile', 'IncludePatterns', 'Like')]
         [string[]]$IncludeRegex = @('.*'),
 
+        [Alias('Exclude', 'ExcludeFile', 'ExcludePatterns', 'NotLike')]
         [string[]]$ExcludeRegex = @()
     )
 
@@ -66,7 +68,7 @@ function Invoke-FileTransform {
         -IncludeRegex $IncludeRegex `
         -ExcludeRegex $ExcludeRegex `
     | ForEach-Object {
-        $header = "`nFile: $($_.FullName)"
+        $header = "File: $($_.FullName)"
         & $FileProcessor $_ $header
     }
 }

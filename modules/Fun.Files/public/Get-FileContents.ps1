@@ -110,34 +110,29 @@ function Get-FileContents {
         [Alias('Directory', 'Root', 'Folder')]
         [string]$Path = '.',
 
-        [Alias('Include', 'IncludeFile', 'Like')]
-        [string[]]$IncludePatterns = @("*"),
+        [Alias('Include', 'IncludeFile', 'IncludePatterns', 'Like')]
+        [string[]]$IncludeRegex = @('.*'),
 
-        [Alias('Exclude', 'ExcludeFile', 'NotLike')]
-        [string[]]$ExcludePatterns = @()
+        [Alias('Exclude', 'ExcludeFile', 'ExcludePatterns', 'NotLike')]
+        [string[]]$ExcludeRegex = @()
     )
 
     process {
-        Invoke-FileTransform -Path $Path -FileProcessor {
+        Invoke-FileTransform `
+            -Path $Path `
+            -IncludeRegex $IncludeRegex `
+            -ExcludeRegex $ExcludeRegex `
+            -FileProcessor {
             param (
                 [System.IO.FileInfo]$file,
                 [string]$header
             )
 
-            $normalized = $file.FullName -replace '\\', '/'
-
-            $included = $IncludePatterns.Count -eq 0 `
-                -or ($IncludePatterns | Where-Object { $normalized -like $_ })
-            $excluded = $ExcludePatterns.Count -ne 0 `
-                -and ($ExcludePatterns | Where-Object { $normalized -like $_ })
-
-            if ($included -and -not $excluded) {
-                [FileContent]::new(
-                    $file.FullName,
-                    $header,
-                    (Get-Content -LiteralPath $file.FullName -Raw)
-                )
-            }
+            [FileContent]::new(
+                $file.FullName,
+                $header,
+                (Get-Content -LiteralPath $file.FullName -Raw)
+            )
         }
     }
 }

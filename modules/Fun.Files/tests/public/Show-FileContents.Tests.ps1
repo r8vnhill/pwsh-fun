@@ -1,16 +1,10 @@
-# Load shared setup (helpers, mocks, test configuration, etc.)
-. "$PSScriptRoot\..\Setup.ps1"
-
-# Ensure the function under test is available and fails fast if not
-Get-Command Show-FileContents -ErrorAction Stop | Out-Null
-
 Describe 'Show-FileContents' {
 
     BeforeAll {
         # Prepare a temporary test directory and file
         $script:tempDir = Join-Path $env:TEMP 'ShowFileContentsTest'
         $script:filePath = Join-Path $script:tempDir 'example.txt'
-        $script:sampleContent = 'Hello from Pester!'
+        $script:sampleContent = 'Kimetsu no Yaiba'
 
         # Clean up any previous test directory and create the new file
         Remove-Item $script:tempDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -40,7 +34,7 @@ Describe 'Show-FileContents' {
         $output | Should -Match '📄 File: .+example\.txt'
 
         # Assert that the file content was printed
-        $output | Should -Match 'Hello from Pester!'
+        $output | Should -Match $script:sampleContent
     }
 
     It 'throws when path does not exist (delegated)' {
