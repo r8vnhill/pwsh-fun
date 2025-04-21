@@ -10,21 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New function `Get-FilteredFiles` for regex-based file inclusion and exclusion.
-- New helper functions `Resolve-ValidDirectory` and `ShouldIncludeFile` to support robust validation and filtering.
-- `IncludeRegex` and `ExcludeRegex` parameters to `Invoke-FileTransform` for advanced filtering capabilities.
-- Comprehensive tests for `Invoke-FileTransform` covering inclusion/exclusion behavior and edge cases.
+- New internal helpers: `Resolve-ValidDirectory`, `ShouldIncludeFile`, and `Get-InvokedFilePathsForTest` for validation and testability.
+- `IncludeRegex` and `ExcludeRegex` parameters to `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents` for consistent, advanced filtering.
+- Utility functions `New-TestDirectoryWithFiles` and `Remove-TestEnvironment` for improved test setup and teardown.
+- New internal test script `Helpers.ps1` to centralize reusable test utilities.
+- Additional tests for `Get-FileContents`, `Invoke-FileTransform`, and `Show-FileContents` covering filtering, directory validation, and error cases.
 
 ### Changed
 
-- Enhanced `Invoke-FileTransform` to support customizable file filtering via regex patterns.
-- Refactored `Invoke-FileTransform` to use modular internal helpers for readability and testability.
-- Improved documentation and inline examples in `README.md` for all public functions.
-- Simplified and modernized examples for `Show-FileContents`, `Get-FileContents`, and `Copy-FileContents`.
-- Improved consistency and clarity of function descriptions and parameter explanations.
+- Refactored `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents` to use regular-expression-based filtering instead of wildcard patterns.
+- Standardized parameter names and aliases across all public commands for consistency (`IncludeRegex`, `ExcludeRegex`).
+- Simplified internal logic in `Get-FileContents` by delegating file selection to `Invoke-FileTransform`.
+- Modernized test structure by importing `.psd1` instead of `.psm1`, with improved setup validation in `Setup.ps1`.
+- Updated `README.md` usage examples to reflect regex-based filtering and revised descriptions for clarity and accuracy.
 
 ### Renamed
 
-- Renamed `Assertions.ps1` to `Assertions.psm1` to align with module naming conventions.
+- Renamed `Assertions.psm1` back to `Assertions.ps1` to reflect actual script structure and resolve module consistency issues.
 
 <!-- ### Added
 

@@ -25,7 +25,7 @@ Describe 'Invoke-FileTransform' {
 
     It 'invokes the processor for each file recursively' {
         # The function should call the provided script block once per file
-        $processedFiles = Get-InvokedFilePathsForTest -Path $script:tempDir
+        $processedFiles  = Get-InvokedFilePathsForTest -Path $script:tempDir
 
         # Assert that both files were passed to the FileProcessor
         $processedFiles | Should -Contain $script:filePath1
