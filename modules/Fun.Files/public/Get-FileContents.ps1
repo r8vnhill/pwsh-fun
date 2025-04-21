@@ -3,30 +3,35 @@
 Represents the contents of a file, including its path, a formatted header, and raw content.
 
 .DESCRIPTION
-The `FileContent` class is a simple data structure used to store information about a file discovered during a recursive traversal.
-It holds three properties:
-- `Path`: The full path to the file.
-- `Header`: A formatted string that can be used as a label, usually displaying the file name.
-- `ContentText`: The raw contents of the file as a single string.
+The `FileContent` class is a lightweight container that holds metadata and contents for a single file.
+It is used in file-processing operations such as `Get-FileContents` and `Invoke-FileTransform`.
 
-The class includes a `ToString()` override to display the header followed by the file content, which can be helpful for debugging or piping to output.
+It defines three properties:
+- `Path`: The full file system path of the file.
+- `Header`: A display-ready label, typically including an emoji and the full path.
+- `ContentText`: The complete raw content of the file.
+
+The `ToString()` method returns a string with the header followed by the content, suitable for display or output.
 
 .EXAMPLE
 PS> [FileContent]::new("C:\logs\output.log", "📄 File: C:\logs\output.log", "Log contents...")
 
-Creates a new `FileContent` object with the specified path, header, and content text.
+Creates a new FileContent object.
 
 .EXAMPLE
 PS> $file = [FileContent]::new("file.txt", "📄 File: file.txt", "Hello")
 >>> Write-Output $file.ToString()
 
-Displaying file content with header.
+Prints:
+📄 File: file.txt
+Hello
 
 .OUTPUTS
 [FileContent]
 
 .NOTES
-This class is used in conjunction with `Get-FileContents` and `Invoke-FileTransform` to model file data in a structured and reusable way.
+- Used in modules like `Fun.Files` for representing structured file data.
+- Especially useful for formatting output or copying files to the clipboard.
 #>
 class FileContent {
     [string]$Path
@@ -46,60 +51,62 @@ class FileContent {
 
 <#
 .SYNOPSIS
-Returns the contents of all files in a directory tree as typed [FileContent] objects.
+Returns the contents of all files in one or more directories as typed [FileContent] objects.
 
 .DESCRIPTION
-`Get-FileContents` recursively scans the specified directory and returns a list of files whose paths match specified inclusion/exclusion patterns.
-Each file is represented as a [FileContent] object, which contains the full file path, a formatted header, and its raw content as a single string.
+`Get-FileContents` recursively scans all files under one or more directory roots (`Path`).
+It returns a [FileContent] object for each file, which includes the file’s full path, a formatted header, and its full content as a string.
 
-This function is useful for scenarios like batch processing, file auditing, code generation, or clipboard operations, and supports advanced path-based filtering through wildcard patterns.
+You can use regular expressions to include or exclude files based on their relative paths.
 
-Filtering is based on normalized full paths (forward slashes used instead of backslashes) and uses `-like` matching semantics.
+Filtering is applied to normalized paths (converted to forward slashes). Exclusions override inclusions.
 
 .PARAMETER Path
-The root directory to search for files. Defaults to the current directory (`.`).
-Supports pipeline input and binding by property name.
+One or more directories to scan.
+Accepts pipeline input and property binding. All paths must exist and be directories.
 
-.PARAMETER IncludePatterns
-An array of wildcard patterns used to include files. These are matched against normalized full file paths.
-If omitted or empty, all files are included.
-Defaults to `'*'`.
+.PARAMETER IncludeRegex
+Regular expressions to select which files to include. Defaults to `'.*'` (all files).
 
-.PARAMETER ExcludePatterns
-An array of wildcard patterns used to exclude files. These are matched against normalized full file paths.
-If a file matches any exclude pattern, it will be skipped even if it matches an include pattern.
+.PARAMETER ExcludeRegex
+Regular expressions to exclude certain files. Exclusions override inclusions.
 
 .EXAMPLE
 PS> Get-FileContents -Path './src'
 
-Returns all files recursively under the `src/` folder.
+Recursively loads all files from the `./src` directory.
 
 .EXAMPLE
-PS> Get-FileContents -Path './logs' -IncludePatterns '*.log'
+PS> Get-FileContents -Path './logs' -IncludeRegex '.*\.log$'
 
-Only includes files with `.log` extension under `logs/`.
+Returns only `.log` files from the `./logs` directory.
 
 .EXAMPLE
-PS> Get-FileContents -Path './code' -IncludePatterns '*.ps1' -ExcludePatterns '*tests*'
+PS> Get-FileContents -Path './code' -IncludeRegex '.*\.ps1$' -ExcludeRegex '.*tests.*'
 
-Includes all `.ps1` scripts except those under paths containing "tests".
+Returns `.ps1` files but skips any that include `tests` in their path.
 
 .EXAMPLE
 PS> './docs', './examples' | Get-FileContents
 
-Scans both directories from pipeline input and returns all files found.
+Reads and returns files from both `./docs` and `./examples` via the pipeline.
+
+.EXAMPLE
+PS> $files = Get-FileContents -Path './data' -IncludeRegex '^important.*\.csv$'
+>>> $files | ForEach-Object { $_.ContentText.Length }
+
+Prints the length of content for each `important*.csv` file.
 
 .OUTPUTS
 [FileContent[]] Each object includes:
-- `Path`: The full file path
-- `Header`: A formatted header string (e.g., for printing)
-- `ContentText`: The raw contents of the file
+- `Path`: the file’s absolute path.
+- `Header`: a printable label.
+- `ContentText`: the raw string contents of the file.
 
 .NOTES
-- The [FileContent] class must be defined in the same module or session.
-- Internally delegates traversal and error handling to `Invoke-FileTransform`.
-- This function normalizes paths to use forward slashes for pattern matching consistency.
-- File content is read using `Get-Content -Raw`.
+- Relies internally on `Invoke-FileTransform` to apply filters and processing.
+- File contents are read with `Get-Content -Raw`.
+- Paths are normalized for consistent pattern matching across platforms.
 #>
 function Get-FileContents {
     [Alias('gfc')]
@@ -109,7 +116,7 @@ function Get-FileContents {
         [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [Alias('Directory', 'Root', 'Folder')]
-        [string]$Path = '.',
+        [string[]]$Path = @('.'),
 
         [Alias('Include', 'IncludeFile', 'IncludePatterns', 'Like')]
         [string[]]$IncludeRegex = @('.*'),
@@ -124,16 +131,16 @@ function Get-FileContents {
             -IncludeRegex $IncludeRegex `
             -ExcludeRegex $ExcludeRegex `
             -FileProcessor {
-            param (
-                [System.IO.FileInfo]$file,
-                [string]$header
-            )
+                param (
+                    [System.IO.FileInfo]$file,
+                    [string]$header
+                )
 
-            [FileContent]::new(
-                $file.FullName,
-                $header,
-                (Get-Content -LiteralPath $file.FullName -Raw)
-            )
-        }
+                [FileContent]::new(
+                    $file.FullName,
+                    $header,
+                    (Get-Content -LiteralPath $file.FullName -Raw)
+                )
+            }
     }
 }

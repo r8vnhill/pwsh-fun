@@ -18,6 +18,12 @@
     - [`Get-FilteredFiles`](#get-filteredfiles)
     - [`Show-FileContents`](#show-filecontents)
     - [`Get-FileContents`](#get-filecontents)
+      - [✅ Basic Usage](#-basic-usage-1)
+      - [🔍 Filter with Regex](#-filter-with-regex)
+      - [📁 Multiple Directories](#-multiple-directories-1)
+      - [🧪 Pipeline Input](#-pipeline-input)
+      - [🧵 Process Files](#-process-files)
+      - [🧩 Combine with Clipboard or Display](#-combine-with-clipboard-or-display)
     - [`Copy-FileContents`](#copy-filecontents)
   - [📄 License](#-license)
   - [👨‍💻 Author](#-author)
@@ -126,17 +132,65 @@ Show-FileContents -Path './docs'
 
 ### `Get-FileContents`
 
-Returns `[FileContent]` objects for matching files:
+Recursively returns `[FileContent]` objects for matching files in one or more directories.
+
+Each object includes:
+- **`Path`**: Full file path
+- **`Header`**: A formatted label like `File: ./path/to/file.txt`
+- **`ContentText`**: Raw content of the file as a single string
+
+#### ✅ Basic Usage
+
+```powershell
+Get-FileContents -Path './src'
+```
+
+Returns all files under `./src`.
+
+#### 🔍 Filter with Regex
 
 ```powershell
 Get-FileContents -Path './src' -IncludeRegex '.*\.ps1$' -ExcludeRegex 'tests/'
 ```
 
-Each object contains:
+Includes only `.ps1` files, excluding any under a `tests/` folder.
 
-- `Path`: full file path
-- `Header`: formatted header string
-- `ContentText`: full contents of the file
+#### 📁 Multiple Directories
+
+```powershell
+Get-FileContents -Path './src', './lib'
+```
+
+Reads all files under both directories.
+
+#### 🧪 Pipeline Input
+
+```powershell
+'./src', './docs' | Get-FileContents
+```
+
+Reads all files from the piped directories.
+
+#### 🧵 Process Files
+
+```powershell
+$files = Get-FileContents -Path './logs' -IncludeRegex '.*\.log$'
+$files | ForEach-Object {
+    "$($_.Header)`n$($_.ContentText.Length) bytes"
+}
+```
+
+Prints each file's header and its content length.
+
+#### 🧩 Combine with Clipboard or Display
+
+```powershell
+Get-FileContents -Path './examples' |
+    ForEach-Object { $_.ToString() } |
+    Set-Clipboard
+```
+
+Copies formatted file previews to clipboard.
 
 ### `Copy-FileContents`
 
