@@ -1,0 +1,50 @@
+# ------------------------------------------------------------------------------
+# 🔧 Core normalization and formatting
+# ------------------------------------------------------------------------------
+
+# Always use LF line endings in the repo (normalize)
+* text=auto eol=lf
+
+# Ensure PowerShell scripts use LF consistently
+*.ps1     text eol=lf
+*.psm1    text eol=lf
+*.psd1    text eol=lf
+
+# Documentation and metadata
+*.md      text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+# VS Code configuration
+.vscode/* text eol=lf
+
+# License and changelog
+LICENSE      text eol=lf
+CHANGELOG.md text eol=lf
+CODE_OF_CONDUCT.md text eol=lf
+
+# ------------------------------------------------------------------------------
+# 📁 GitHub syntax highlighting support
+# ------------------------------------------------------------------------------
+
+*.ps1 linguist-language=PowerShell
+*.psm1 linguist-language=PowerShell
+*.psd1 linguist-language=PowerShell
+
+# ------------------------------------------------------------------------------
+# 📦 Binary / non-text file treatment
+# ------------------------------------------------------------------------------
+
+# Treat binaries properly if added in the future
+*.zip  binary
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.ico  binary
+*.mp4  binary
+*.ttf  binary
+*.woff binary
+*.exe  binary

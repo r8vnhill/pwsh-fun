@@ -1,5 +1,8 @@
 # 🎉 pwsh-fun
 
+[![PowerShell](https://img.shields.io/badge/pwsh-7%2B-blue?logo=powershell)](https://github.com/PowerShell/PowerShell)
+[![License](https://img.shields.io/github/license/r8vnhill/pwsh-fun?color=informational)](./LICENSE)
+
 **`pwsh-fun`** is a modular PowerShell toolkit for working with files in a fun, scriptable, and flexible way. It provides utilities for reading, transforming, copying, and displaying file contents — plus tooling to manage the modular structure itself.
 
 Whether you're inspecting logs, collecting code snippets, or building custom transformation pipelines, `pwsh-fun` gives you a consistent and extensible interface.
