@@ -1,46 +1,39 @@
 <#
 .SYNOPSIS
-Displays the contents of all files under a directory, with optional ANSI color formatting.
+Displays the contents of files in one or more directories with optional color formatting.
 
 .DESCRIPTION
-`Show-FileContents` is a utility function that recursively traverses the given path, printing the contents of each file along with its full path.
+`Show-FileContents` recursively lists all files under the specified directories and displays their content and file headers. 
+If the terminal supports ANSI escape sequences, headers are shown in cyan and file content in gray.
 
-Each file is preceded by a formatted header line that includes the file’s path.
-If the terminal supports ANSI escape sequences, the header is printed in cyan and the file content in dim gray.
-Otherwise, plain text is shown.
-
-Internally, the function delegates to `Invoke-FileTransform`, which performs path validation, file enumeration, and `ShouldProcess` handling.
+This function is ideal for inspecting large sets of files or previewing content in scripts and documentation workflows.
 
 .PARAMETER Path
-The directory to scan recursively for files. Defaults to the current directory ('.').
+One or more directories to traverse. Defaults to the current directory ('.').
+Accepts pipeline input and property binding.
 
 .EXAMPLE
-PS> Show-FileContents
+PS> Show-FileContents -Path './docs'
 
-Displays the contents of all files in the current directory and its subdirectories.
+Displays the contents of all files under the `./docs` directory.
 
 .EXAMPLE
-PS> Show-FileContents -Path './logs'
+PS> './src', './examples' | Show-FileContents
 
-Displays all files under the `logs` folder, printing each file's name and content.
-
-Simulates what files would be displayed without actually printing the contents. Relies on `Invoke-FileTransform` for `ShouldProcess`.
-
-.OUTPUTS
-None. The function writes text output to the console using `Write-Information` and `Write-Host`.
+Displays the contents of files under multiple directories provided via pipeline.
 
 .NOTES
-- Uses ANSI escape codes to color headers cyan (`\e[36m`) and content gray (`\e[90m`) when supported.
-- Delegates all recursive traversal, validation, and error handling to `Invoke-FileTransform`.
+- Uses `Invoke-FileTransform` internally for traversal and filtering.
+- Outputs colored headers and contents if terminal supports it.
+- Uses ANSI escape codes for color formatting.
+
 #>
 function Show-FileContents {
     [Alias('sfc')]
     [CmdletBinding()]
     param (
-        [Parameter(Position = 0)]
-        [ValidateNotNullOrEmpty()]
-        [Alias('Directory', 'Root', 'Folder')]
-        [string]$Path = '.'
+        [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$Path = @('.')
     )
 
     $supportsColor = $Host.UI.SupportsVirtualTerminal
@@ -48,17 +41,62 @@ function Show-FileContents {
     Invoke-FileTransform -Path $Path -FileProcessor {
         param ($file, $header)
 
-        $colorHeader = $supportsColor ? "`e[36m$header`e[0m" : $header
+        $colorHeader = $supportsColor ? (Format-Cyan $header) : $header
 
-        Write-Information $colorHeader -InformationAction Continue
+        Write-Information $colorHeader -InformationAction $InformationPreference
 
         $content = Get-Content $file -Raw
         if ($supportsColor) {
-            # Example: gray output
-            $colorContent = "`e[90m$content`e[0m"
+            $colorContent = Format-Gray $content
             Write-Host $colorContent
         } else {
             Write-Host $content
         }
     }
+}
+
+<#
+.SYNOPSIS
+Formats a string using cyan ANSI color.
+
+.DESCRIPTION
+Returns the input text wrapped in ANSI escape sequences for cyan color.
+Used for headers or emphasis in terminal output.
+
+.PARAMETER Text
+The input string to colorize.
+
+.OUTPUTS
+[string] The ANSI-wrapped string with cyan color applied.
+
+.EXAMPLE
+PS> Format-Cyan "Header Text"
+
+Returns a cyan-colored version of "Header Text" for display in a terminal that supports ANSI codes.
+#>
+function Format-Cyan([string]$Text) {
+    return "`e[36m$Text`e[0m"
+}
+
+<#
+.SYNOPSIS
+Formats a string using gray ANSI color.
+
+.DESCRIPTION
+Returns the input text wrapped in ANSI escape sequences for gray (dim) color.
+Ideal for displaying secondary or less prominent output.
+
+.PARAMETER Text
+The input string to colorize.
+
+.OUTPUTS
+[string] The ANSI-wrapped string with gray color applied.
+
+.EXAMPLE
+PS> Format-Gray "Dimmed content"
+
+Returns a gray-colored version of "Dimmed content" for terminal display.
+#>
+function Format-Gray([string]$Text) {
+    return "`e[90m$Text`e[0m"
 }

@@ -1,78 +1,94 @@
-# 🧰 pwsh-fun
+# 🎉 pwsh-fun
 
-**pwsh-fun** is a modular PowerShell toolkit for working with files, terminal enhancements, and scripting productivity. Each submodule provides focused functionality that can be loaded independently or as part of the entire suite.
+**`pwsh-fun`** is a modular PowerShell toolkit for working with files in a fun, scriptable, and flexible way. It provides utilities for reading, transforming, copying, and displaying file contents — plus tooling to manage the modular structure itself.
 
-## 📦 Available Modules
+Whether you're inspecting logs, collecting code snippets, or building custom transformation pipelines, `pwsh-fun` gives you a consistent and extensible interface.
 
-| Module                               | Description                                                                 |
-| ------------------------------------ | --------------------------------------------------------------------------- |
-| [`Fun.Files`](./modules/Fun.Files)   | Read, display, transform, and copy file contents with header formatting     |
-| [`Fun.Loader`](./modules/Fun.Loader) | Load/unload all pwsh-fun modules easily in your current session             |
-| `Fun.Terminal`                       | *(Coming soon)* Terminal-focused helpers for prompts, colors, and utilities |
+## 📚 Modules
 
-## ⚡ Quick Start
+This project is composed of two main modules:
+
+### 📁 [Fun.Files](./modules/Fun.Files/README.md)
+
+Tools for working with file contents:
+
+- ✅ Process files recursively with custom logic
+- 🔍 Filter with include/exclude regex patterns
+- 🖨 Display file contents with headers and colors
+- 📋 Copy structured file blocks to your clipboard
+
+### 🧩 [Fun.Loader](./modules/Fun.Loader/README.md)
+
+Manage module loading:
+
+- Dynamically load all submodules in one command (`Install-FunModules`)
+- Unload them just as easily (`Remove-FunModules`)
+
+## ✨ Example Usage
 
 ```powershell
-# Load all modules (development mode)
-Import-Module .\modules\Fun.Loader\Fun.Loader.psd1
+# Load everything
+Import-Module ./modules/Fun.Loader/Fun.Loader.psd1
 Install-FunModules
-```
 
-Or load a single module:
-
-```powershell
-Import-Module .\modules\Fun.Files\Fun.Files.psd1
-```
-
-## 🧩 Highlights
-
-### `Show-FileContents`
-
-View all file contents in a directory, with headers and optional color support.
-
-```powershell
+# Display file contents with formatting
 Show-FileContents -Path './examples'
-```
 
-### `Get-FileContents`
+# Copy .ps1 files to clipboard
+Copy-FileContents -Path './src' -IncludeRegex '.*\.ps1$'
 
-Get structured `[FileContent]` objects with path, header, and content text.
-
-```powershell
-Get-FileContents -Path './src' -IncludePatterns '*.ps1' -ExcludePatterns '*test*'
-```
-
-### `Copy-FileContents`
-
-Copy the formatted contents of multiple files to your clipboard.
-
-```powershell
-Copy-FileContents -Path './logs'
-```
-
-### `Invoke-FileTransform`
-
-Apply your own logic to each file.
-
-```powershell
-Invoke-FileTransform -Path './data' -FileProcessor {
+# Use regex-powered transformations
+Invoke-FileTransform -Path './logs' -IncludeRegex '.*\.log$' -FileProcessor {
     param ($file, $header)
-    "$header`n$($file.Name.ToUpper())"
+    "$header`n$((Get-Content $file -Raw).Length) bytes"
 }
 ```
 
-## 🏗️ Project Structure
+## 📦 Installation
+
+Clone the repo and import modules directly from the `modules/` folder:
+
+```powershell
+git clone https://github.com/r8vnhill/pwsh-fun
+cd pwsh-fun
+Import-Module ./modules/Fun.Loader/Fun.Loader.psd1
+Install-FunModules
+```
+
+> 📌 This only installs the modules for the current session.
+
+## 🔁 Persistent Setup
+
+To have access to `pwsh-fun` commands in **all sessions**, add the following to your PowerShell profile:
+
+```powershell
+# Your profile path:
+# $PROFILE or $PROFILE.CurrentUserAllHosts
+Import-Module "C:\path\to\pwsh-fun\modules\Fun.Loader\Fun.Loader.psd1"
+Install-FunModules
+```
+
+To open your profile for editing:
+
+```powershell
+code $PROFILE
+```
+
+Or create one if it doesn’t exist:
+
+```powershell
+if (!(Test-Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force }
+```
+
+## 🛠️ Development Structure
 
 ```plaintext
 pwsh-fun/
 ├── modules/
-│   ├── Fun.Files/     # File operations module
-│   ├── Fun.Loader/    # Module loader/unloader
-│   └── Fun.Terminal/  # Terminal utilities (WIP)
-├── .vscode/           # Dev environment settings
-├── .gitignore
-├── LICENSE
-└── README.md
+│   ├── Fun.Files/    # File inspection and transformation utilities
+│   └── Fun.Loader/   # Module loading/unloading infrastructure
+├── tests/            # Pester tests for all modules
+└── README.md         # You are here
 ```
 
 ## 👥 Contributing

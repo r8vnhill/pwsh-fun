@@ -15,16 +15,20 @@
       - [📂 Multiple directories](#-multiple-directories)
       - [🔁 With pipeline input](#-with-pipeline-input)
       - [🧪 Transform and overwrite](#-transform-and-overwrite)
-    - [`Get-FilteredFiles`](#get-filteredfiles)
     - [`Show-FileContents`](#show-filecontents)
+      - [🔍 Basic Usage](#-basic-usage-1)
+      - [📦 Multiple Paths](#-multiple-paths)
+      - [🧩 From the Pipeline](#-from-the-pipeline)
     - [`Get-FileContents`](#get-filecontents)
-      - [✅ Basic Usage](#-basic-usage-1)
+      - [✅ Basic Usage](#-basic-usage-2)
       - [🔍 Filter with Regex](#-filter-with-regex)
       - [📁 Multiple Directories](#-multiple-directories-1)
       - [🧪 Pipeline Input](#-pipeline-input)
       - [🧵 Process Files](#-process-files)
       - [🧩 Combine with Clipboard or Display](#-combine-with-clipboard-or-display)
     - [`Copy-FileContents`](#copy-filecontents)
+      - [Use Cases](#use-cases)
+      - [Pipelining Examples](#pipelining-examples)
   - [📄 License](#-license)
   - [👨‍💻 Author](#-author)
   - [📬 Contributing](#-contributing)
@@ -112,23 +116,35 @@ Invoke-FileTransform -Path './notes' -IncludeRegex '.*\.md$' -FileProcessor {
 
 Searches for `TODO` in all Markdown files and replaces them with ✅.
 
-### `Get-FilteredFiles`
-
-Returns `[System.IO.FileInfo]` objects for files filtered by regular expressions:
-
-```powershell
-Get-FilteredFiles -RootPath './src' `
-                  -IncludeRegex '.*\.ps1$' `
-                  -ExcludeRegex 'tests/'
-```
-
 ### `Show-FileContents`
 
-Prints all files under a directory with formatted headers and content blocks:
+Recursively displays file contents from one or more directories with readable headers and optional ANSI color formatting.
+
+#### 🔍 Basic Usage
 
 ```powershell
 Show-FileContents -Path './docs'
 ```
+
+Prints all files under `./docs` with cyan headers and gray content (if supported by your terminal).
+
+#### 📦 Multiple Paths
+
+```powershell
+Show-FileContents -Path './src', './examples'
+```
+
+Recursively prints all files from both `./src` and `./examples`.
+
+#### 🧩 From the Pipeline
+
+```powershell
+'./src', './tests' | Show-FileContents
+```
+
+Same as above, but provides paths via pipeline input—ideal for dynamic or filtered lists.
+
+> 💡 Color formatting (cyan for headers, gray for content) is automatically disabled in unsupported environments like CI logs.
 
 ### `Get-FileContents`
 
@@ -194,16 +210,43 @@ Copies formatted file previews to clipboard.
 
 ### `Copy-FileContents`
 
-Copies file contents (with headers) to your clipboard:
+Recursively copies file contents (with headers) to your clipboard **and returns them as strings**, making it easy to integrate into pipelines.
 
 ```powershell
 Copy-FileContents -Path './src' -IncludeRegex '.*\.ps1$'
 ```
 
-Useful for:
-- Sharing code snippets
-- Debugging
-- Documentation
+This command:
+
+- Recursively finds `.ps1` files under `./src`
+- Prepends each with a formatted header
+- Copies the full result to your clipboard
+- Returns the formatted text as output
+
+#### Use Cases
+
+- 📋 Sharing annotated code snippets
+- 🐞 Debugging and reproducing issues
+- 📚 Collecting content for documentation
+
+#### Pipelining Examples
+
+```powershell
+# Save copied content to a file as well
+Copy-FileContents -Path './examples' | Set-Content 'snippet.txt'
+
+# Search within the copied output
+Copy-FileContents -Path './data' | Select-String 'TODO'
+```
+
+The command can accept multiple paths or pipeline input:
+
+```powershell
+# Use piped paths
+'./src', './lib' | Copy-FileContents
+```
+
+💡 Ideal when combining multiple folders or filtering content before pasting.
 
 ## 📄 License
 

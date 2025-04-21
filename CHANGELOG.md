@@ -5,36 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - TBD
+## [0.1.0] - 2025-04-21
 
 ### Added
 
-- Function `Get-FilteredFiles` for regex-based file inclusion and exclusion.
-- Internal helpers for validation and test support:
+- Regex-based filtering via `IncludeRegex` and `ExcludeRegex` parameters in:
+  - `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents`.
+- Support for multiple paths (array and pipeline input) in:
+  - `Invoke-FileTransform`, `Get-FileContents`, `Show-FileContents`, and `Copy-FileContents`.
+- Return value support in `Copy-FileContents`: outputs formatted strings copied to the clipboard.
+- ANSI-colored output (headers in cyan, content in gray) in `Show-FileContents` when supported.
+- Internal helpers and utilities:
   - `Resolve-ValidDirectory`, `ShouldIncludeFile`, `Get-InvokedFilePathsForTest`
-  - `New-TestDirectoryWithFiles`, `Remove-TestEnvironment`
-- Centralized test utilities in `Helpers.ps1`.
-- `IncludeRegex` and `ExcludeRegex` parameters added to:
-  - `Invoke-FileTransform`, `Get-FileContents`, and `Copy-FileContents` for consistent, advanced filtering.
-- `Invoke-FileTransform` now supports:
-  - Multiple paths via array or pipeline input.
-  - Enhanced docstring and parameter annotations for discoverability.
-- Declared `[OutputType([FileContent])]` on `Get-FileContents`.
+  - `New-TestDirectoryWithFiles`, `Remove-TestEnvironment`, `Format-Cyan`, `Format-Gray`
+  - Centralized in `Helpers.ps1`
+- Declared `[OutputType([FileContent])]` for `Get-FileContents`.
 
 ### Changed
 
-- Replaced wildcard-based filters with regex-based filtering in all core functions.
-- Standardized parameter names and aliases across public functions.
-- Refactored `Get-FileContents` to delegate filtering to `Invoke-FileTransform`.
-- Refactored test bootstrapping to import `.psd1` instead of `.psm1`, with setup validation in `Setup.ps1`.
+- Replaced wildcard-based filtering with regex-based matching throughout.
+- Standardized parameter names and aliases across all commands.
+- Refactored:
+  - `Get-FileContents` to delegate to `Invoke-FileTransform`
+  - `Copy-FileContents` to accumulate input across pipeline stages
+  - Test bootstrapping to load `.psd1` with validation
 - Improved test coverage:
-  - Added checks for content accuracy and edge case handling.
-- Expanded `README.md` with a table of contents, detailed examples, and modern usage patterns.
-- Updated `Get-FileContents` to accept and process **multiple paths** via array or pipeline.
+  - Content accuracy, edge case handling, and output capture with `Start-Transcript`.
+- Enhanced documentation:
+  - Added full usage examples, pipelining patterns, and a table of contents to `README.md`.
+  - Clarified terminal color support and header formatting behavior.
 
 ### Renamed
 
-- Renamed `Assertions.psm1` to `Assertions.ps1` to reflect actual script structure and ensure module consistency.
+- `Assertions.psm1` → `Assertions.ps1` to match file structure and module loading expectations.
 
 <!-- [unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.0.1...HEAD -->
 <!-- [0.0.2]: https://github.com/r8vnhill/pwsh-fun/compare/v0.0.1...v0.0.2

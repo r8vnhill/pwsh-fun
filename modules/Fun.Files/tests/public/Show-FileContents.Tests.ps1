@@ -1,44 +1,50 @@
 Describe 'Show-FileContents' {
 
     BeforeAll {
-        # Prepare a temporary test directory and file
-        $script:tempDir = Join-Path $env:TEMP 'ShowFileContentsTest'
-        $script:filePath = Join-Path $script:tempDir 'example.txt'
-        $script:sampleContent = 'Kimetsu no Yaiba'
+        # Capture pre-existing modules so we can skip unloading them
+        $script:preloadedModules = Get-Module -Name Fun.Files, Assertions
+        . "$PSScriptRoot\..\Setup.ps1"
 
-        # Clean up any previous test directory and create the new file
-        Remove-Item $script:tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        New-Item -Path $script:filePath -ItemType File -Force | Set-Content -Value $script:sampleContent
+        # Crea estructura de archivos de prueba
+        $files = New-TestDirectoryWithFiles -BaseName 'GetFileContentsTest'
+        # Prepare a temporary test directory and file
+        $script:tempDir = $files.Base
+        $script:filePath = $files.File1
+        $script:sampleContent = 'Kimetsu no Yaiba'
     }
+
+    BeforeEach {
+        # Clean up any previous state and set up a consistent test environment
+        Remove-Item $script:tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -Path $script:tempDir -ItemType Directory -Force | Out-Null
+    
+        # Recreate the test file path if needed
+        Set-Content -Path $script:filePath -Value $script:sampleContent -NoNewline
+    }    
 
     AfterAll {
         # Clean up the temporary directory after all tests run
         Remove-Item $script:tempDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    It 'displays file header and content without color' {
-        # Mock Invoke-FileTransform to simulate its behavior in a controlled way
-        Mock Invoke-FileTransform {
-            param ($Path, $FileProcessor)
-
-            # Invoke the processor as if it was processing a real file
-            $FileProcessor.Invoke((Get-Item $script:filePath), "`n📄 File: $($script:filePath)")
-        }
-
-        # Capture all output from Show-FileContents (including Write-Host and Write-Information)
-        $output = & {
+    It 'prints file headers and contents to the host' {
+        $outputPath = Join-Path $env:TEMP ('sfc-output-{0}.txt' -f ([guid]::NewGuid()))
+        
+        try {
+            Start-Transcript -Path $outputPath -Force | Out-Null
             Show-FileContents -Path $script:tempDir
-        } *>&1 | Out-String
-
-        # Assert that the file header was printed
-        $output | Should -Match '📄 File: .+example\.txt'
-
-        # Assert that the file content was printed
-        $output | Should -Match $script:sampleContent
-    }
-
-    It 'throws when path does not exist (delegated)' {
-        # Ensure the function throws an error for a non-existent path
-        { Show-FileContents -Path "$script:tempDir\NOPE" } | Should -Throw
-    }
+        } finally {
+            Stop-Transcript | Out-Null
+        }
+    
+        $transcript = Get-Content $outputPath -Raw
+    
+        $escapedPath = [Regex]::Escape($script:filePath)
+        $transcript | Should -Match $escapedPath
+    
+        $escapedContent = [Regex]::Escape($script:sampleContent)
+        $transcript | Should -Match $escapedContent
+    
+        Remove-Item $outputPath -Force -ErrorAction SilentlyContinue
+    }     
 }
