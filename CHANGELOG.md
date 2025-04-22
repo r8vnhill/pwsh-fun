@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - TBD
 
+## [0.2.0] - 2025-04-21
+
 ### Added
 
 - New command: `Compress-FilteredFiles`
@@ -59,7 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Assertions.psm1` → `Assertions.ps1` to match file structure and module loading expectations.
 
-[unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.2.0
 [0.1.0]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.1.0
-<!-- [0.0.2]: https://github.com/r8vnhill/pwsh-fun/compare/v0.0.1...v0.0.2
-[0.0.1]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.0.1 -->
