@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - TBD
 
+### Changed
+
+- Refactored `Test-Command`:
+  - Now returns a strongly typed `[CommandCheck]` object instead of a generic `PSCustomObject`.
+  - Added support for multiple command names (`[string[]]`) and pipeline input.
+  - Added `-OnlyExisting` switch to suppress non-existent results.
+  - Added `ToString()` override for readable output.
+  - Introduced alias `tc`.
+
 ## [0.2.0] - 2025-04-21
 
 ### Added
