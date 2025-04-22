@@ -4,7 +4,7 @@
     RootModule = 'Fun.Loader.psm1'
 
     # Semantic versioning recommended
-    ModuleVersion = '0.1.0'
+    ModuleVersion = '0.2.0'
 
     # PowerShell Core compatible (PS7+)
     CompatiblePSEditions = @('Core')

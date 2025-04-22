@@ -12,20 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New command: `Compress-FilteredFiles`
-  - Compresses filtered files from one or more directories into a `.zip` archive.
-  - Supports regex-based `IncludeRegex` and `ExcludeRegex` filters.
-  - Accepts multiple paths via array or pipeline input.
-  - Preserves relative folder structure in archive.
-  - Includes `-WhatIf`, `-Confirm`, verbose/debug output, and proper error handling.
-  - Returns the path to the created archive or `$null` if no files matched.
-- Tests for `Compress-FilteredFiles`, covering matching, exclusion, path resolution, overwrite behavior, and edge cases.
+  - Recursively compresses filtered files from one or more directories into a `.zip` archive.
+  - Supports `IncludeRegex` / `ExcludeRegex` filters (regex-based).
+  - Accepts multiple paths via array or pipeline.
+  - Preserves relative folder structure in the archive.
+  - Implements `-WhatIf`, `-Confirm`, verbose/debug output, and robust error handling.
+  - Returns the archive path or `$null` if no files matched.
+- Comprehensive tests for `Compress-FilteredFiles`, covering:
+  - Inclusion/exclusion filters
+  - Path handling and pipeline input
+  - Overwrite behavior and edge cases
 
 ### Changed
 
 - Exported `Compress-FilteredFiles` in `Fun.Files.psd1` and `.psm1`.
-- Updated `Show-FileContents`:
-  - Simplified header output using `Write-Host` instead of `Write-Information`.
-  - Adjusted tests to capture console output without using `Start-Transcript`.
+- Improved `Show-FileContents`:
+  - Replaced `Write-Information` with `Write-Host` for header output.
+  - Simplified tests to capture output without `Start-Transcript`.
 
 ## [0.1.0] - 2025-04-21
 

@@ -3,7 +3,7 @@
     RootModule        = '.\modules\Fun.Files\Fun.Files.psm1'
 
     # Semantic version of the module
-    ModuleVersion     = '0.1.0'
+    ModuleVersion = '0.2.0'
 
     # Unique module identifier
     GUID              = '06a00c57-8a2e-46ef-88f9-4cc0d9feba96'
