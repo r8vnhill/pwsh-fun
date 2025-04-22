@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - TBD
+
+### Added
+
+- New command: `Compress-FilteredFiles`
+  - Compresses filtered files from one or more directories into a `.zip` archive.
+  - Supports regex-based `IncludeRegex` and `ExcludeRegex` filters.
+  - Accepts multiple paths via array or pipeline input.
+  - Preserves relative folder structure in archive.
+  - Includes `-WhatIf`, `-Confirm`, verbose/debug output, and proper error handling.
+  - Returns the path to the created archive or `$null` if no files matched.
+- Tests for `Compress-FilteredFiles`, covering matching, exclusion, path resolution, overwrite behavior, and edge cases.
+
+### Changed
+
+- Exported `Compress-FilteredFiles` in `Fun.Files.psd1` and `.psm1`.
+- Updated `Show-FileContents`:
+  - Simplified header output using `Write-Host` instead of `Write-Information`.
+  - Adjusted tests to capture console output without using `Start-Transcript`.
+
 ## [0.1.0] - 2025-04-21
 
 ### Added
@@ -39,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Assertions.psm1` → `Assertions.ps1` to match file structure and module loading expectations.
 
-<!-- [unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.0.1...HEAD -->
+[unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.1.0
 <!-- [0.0.2]: https://github.com/r8vnhill/pwsh-fun/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.0.1 -->

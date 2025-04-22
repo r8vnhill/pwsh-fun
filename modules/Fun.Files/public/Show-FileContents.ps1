@@ -43,7 +43,7 @@ function Show-FileContents {
 
         $colorHeader = $supportsColor ? (Format-Cyan $header) : $header
 
-        Write-Information $colorHeader -InformationAction $InformationPreference
+        Write-Host $colorHeader
 
         $content = Get-Content $file -Raw
         if ($supportsColor) {

@@ -18,7 +18,8 @@
         'Show-FileContents',
         'Get-FileContents',
         'Copy-FileContents',
-        'Invoke-FileTransform'
+        'Invoke-FileTransform',
+        'Compress-FilteredFiles'
     )
 
     # No cmdlets, variables, or aliases are exported

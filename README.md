@@ -90,7 +90,6 @@ pwsh-fun/
 ├── modules/
 │   ├── Fun.Files/    # File inspection and transformation utilities
 │   └── Fun.Loader/   # Module loading/unloading infrastructure
-├── tests/            # Pester tests for all modules
 └── README.md         # You are here
 ```
 
