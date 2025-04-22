@@ -32,7 +32,7 @@
     - [`Compress-FilteredFiles`](#compress-filteredfiles)
       - [🧩 Basic Usage](#-basic-usage-3)
       - [🎯 Include and Exclude Patterns](#-include-and-exclude-patterns)
-      - [� With Pipeline Input](#-with-pipeline-input-1)
+      - [🔁 With Pipeline Input](#-with-pipeline-input-1)
       - [🔬 What-If Support](#-what-if-support)
   - [📄 License](#-license)
   - [👨‍💻 Author](#-author)
@@ -44,6 +44,7 @@
 - 🔍 Advanced file filtering using regular-expression-based include/exclude patterns
 - 🔁 Inject custom logic per file using `Invoke-FileTransform`
 - 📋 Copy multiple files’ contents to clipboard with formatting
+- 🗜 Compress filtered files into a `.zip` archive while preserving directory structure
 
 ## 📦 Installation
 
