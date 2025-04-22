@@ -1,63 +1,63 @@
 <#
 .SYNOPSIS
-Compresses selected files from one or more directories into a zip archive.
+Compresses selected files from one or more directories into a zip archive, using filtering.
 
 .DESCRIPTION
-`Compress-FilteredFiles` recursively scans one or more directories and compresses matching files into a zip archive.
-It supports inclusion and exclusion using regular expressions against normalized relative paths.
+`Compress-FilteredFiles` recursively traverses one or more input directories and creates a `.zip` archive with files that match a set of inclusion and exclusion regular expressions.
+File paths are preserved relative to their input roots.
 
-This function is useful for packaging scripts, exporting filtered content, or archiving code with fine-grained control.
+This function is suitable for archiving filtered content, exporting source code, or building custom packages in automated scripts.
+It supports verbose/debug output and `-WhatIf`/`-Confirm` scenarios via `SupportsShouldProcess`.
 
-If the specified zip file already exists, it will be deleted and replaced.
-Use `-WhatIf` or `-Confirm` to preview or approve this action.
+The function supports pipeline input for `-Path`, accumulating values across invocations and emitting the resulting zip path once.
 
 .PARAMETER Path
-The root directory or directories to scan for files.
-Accepts relative or absolute paths.
-Required.
+One or more directories to scan. Accepts pipeline input.
+Paths are resolved to full filesystem paths and treated as root anchors for relative structure.
 
 .PARAMETER DestinationZip
-The path to the zip file to create.
-Must end with `.zip`.
-Required.
+The path to the zip archive to create. Must end with `.zip`.
+If the file already exists, it will be removed and replaced unless `-WhatIf` is specified.
 
 .PARAMETER IncludeRegex
-An array of regular expressions to include files.
-Patterns are applied to normalized relative paths.
-Defaults to `.*`, which includes all files.
+An array of regular expressions that determine which files to include.
+Matches are evaluated against normalized relative paths.
+Defaults to `'.*'` (all files).
 
 .PARAMETER ExcludeRegex
-An array of regular expressions to exclude files.
-If a file matches any exclusion pattern, it is omitted even if it matches an inclusion pattern.
-Defaults to none.
+An array of regular expressions that determine which files to exclude.
+These override any matches from `IncludeRegex`.
 
 .OUTPUTS
 [string] The full path of the created zip file, or `$null` if no files matched.
 
 .EXAMPLE
-PS> Compress-FilteredFiles -Path './src' -DestinationZip 'src.zip'
+PS> Compress-FilteredFiles -Path './src' -DestinationZip 'output.zip'
 
-Creates a zip archive of all files under `./src`.
+Compresses all files under `./src` into `output.zip`.
 
 .EXAMPLE
-PS> Compress-FilteredFiles -Path './modules' -DestinationZip 'project.zip' `
+PS> Compress-FilteredFiles -Path './modules' -DestinationZip 'archive.zip' `
 >>>     -IncludeRegex '.*\.ps1$', '.*\.psm1$' `
 >>>     -ExcludeRegex '.*\/tests\/.*'
 
-Archives only `.ps1` and `.psm1` files, skipping any inside a `tests` folder.
+Compresses `.ps1` and `.psm1` files under `./modules`, excluding those in a `tests` folder.
 
 .EXAMPLE
-PS> './src', './lib' | Compress-FilteredFiles -DestinationZip 'bundle.zip'
+PS> './src', './lib' | Compress-FilteredFiles -DestinationZip 'combined.zip'
 
-Packages files from both `src/` and `lib/` into a zip archive using pipeline input.
+Combines files from both `./src` and `./lib` into `combined.zip`, preserving relative paths.
+
+.EXAMPLE
+PS> Compress-FilteredFiles -Path './src' -DestinationZip 'src.zip' -WhatIf
+
+Simulates the compression operation without writing any files.
 
 .NOTES
-- Uses `[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile()` for precise path control.
-- Relative paths are preserved with respect to each input root.
-- Supports `-WhatIf` and `-Confirm` for safer execution in CI pipelines or scripts.
-- Verbose and debug output is available for inspection and diagnostics.
-- Uses internal helper functions: `Get-FilesToZip`, `Initialize-ZipTarget`, and `Add-FilesToZip`.
-- Relies on .NET's System.IO.Compression: https://learn.microsoft.com/dotnet/api/system.io.compression.zipfile
+- Uses `Get-FilesToZip`, `Initialize-ZipTarget`, and `Add-FilesToZip` internally.
+- Preserves relative paths from each root directory.
+- Supports `-WhatIf`, `-Confirm`, `-Verbose`, and `-Debug`.
+- Compatible with CI/CD workflows where selective archiving is needed.
 #>
 function Compress-FilteredFiles {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
@@ -96,29 +96,30 @@ function Compress-FilteredFiles {
             Write-Verbose "🎯 Destination: $DestinationZip"
             Write-Debug   "Include patterns: $($IncludeRegex -join ', ')"
             Write-Debug   "Exclude patterns: $($ExcludeRegex -join ', ')"
-    
+
             $files = Get-FilesToZip -Path $allPaths `
                 -IncludeRegex $IncludeRegex `
                 -ExcludeRegex $ExcludeRegex `
                 -Verbose:$VerbosePreference `
                 -Debug:$DebugPreference
-    
+
             if ($files.Count -eq 0) {
                 Write-Warning '⚠️ No files matched the filters. Nothing to compress.'
                 return $null
             }
-    
+
             Write-Verbose "📁 Total files to zip: $($files.Count)"
-    
+
             Initialize-ZipTarget -DestinationZip $DestinationZip
             Add-FilesToZip -Files $files `
                 -DestinationZip $DestinationZip `
                 -Verbose:$VerbosePreference `
                 -Debug:$DebugPreference
-    
+
             Write-Verbose "✅ Archive created: $DestinationZip"
         }
-        # Emit result once after processing
+
+        # Only emit result once when invoked as a non-streaming command
         if ($allPaths.Count -gt 0 -and -not $PSCmdlet.MyInvocation.ExpectingInput) {
             return $DestinationZip
         }

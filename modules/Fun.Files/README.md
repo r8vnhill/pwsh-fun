@@ -29,6 +29,11 @@
     - [`Copy-FileContents`](#copy-filecontents)
       - [Use Cases](#use-cases)
       - [Pipelining Examples](#pipelining-examples)
+    - [`Compress-FilteredFiles`](#compress-filteredfiles)
+      - [🧩 Basic Usage](#-basic-usage-3)
+      - [🎯 Include and Exclude Patterns](#-include-and-exclude-patterns)
+      - [� With Pipeline Input](#-with-pipeline-input-1)
+      - [🔬 What-If Support](#-what-if-support)
   - [📄 License](#-license)
   - [👨‍💻 Author](#-author)
   - [📬 Contributing](#-contributing)
@@ -247,6 +252,48 @@ The command can accept multiple paths or pipeline input:
 ```
 
 💡 Ideal when combining multiple folders or filtering content before pasting.
+
+### `Compress-FilteredFiles`
+
+Compresses a set of filtered files into a `.zip` archive, preserving directory structure relative to each root.
+
+#### 🧩 Basic Usage
+
+```powershell
+Compress-FilteredFiles -Path './src' -DestinationZip 'output.zip'
+```
+
+Archives all files under `./src` into `output.zip`.
+
+#### 🎯 Include and Exclude Patterns
+
+```powershell
+Compress-FilteredFiles `
+    -Path './modules' `
+    -DestinationZip 'archive.zip' `
+    -IncludeRegex '.*\.ps1$', '.*\.psm1$' `
+    -ExcludeRegex '.*\/tests\/.*'
+```
+
+Includes only `.ps1` and `.psm1` files under `./modules`, skipping any in `tests` folders.
+
+#### 🔁 With Pipeline Input
+
+```powershell
+'./src', './lib' | Compress-FilteredFiles -DestinationZip 'combined.zip'
+```
+
+Accepts paths from the pipeline for flexibility in scripts and filters.
+
+#### 🔬 What-If Support
+
+```powershell
+Compress-FilteredFiles -Path './docs' -DestinationZip 'docs.zip' -WhatIf
+```
+
+Simulates the operation without writing any files. Useful for dry runs or CI setups.
+
+> 💡 The command only emits output once when not streaming input, and does nothing if no files match.
 
 ## 📄 License
 

@@ -1,44 +1,69 @@
 <#
 .SYNOPSIS
-Displays the contents of files in one or more directories with optional color formatting.
+Displays the contents of files in one or more directories, with optional ANSI color formatting.
 
 .DESCRIPTION
-`Show-FileContents` recursively lists all files under the specified directories and displays their content and file headers. 
-If the terminal supports ANSI escape sequences, headers are shown in cyan and file content in gray.
+`Show-FileContents` recursively scans one or more directories, displaying each matching file with a clear header and its full content.
+It supports optional include/exclude patterns for filtering files by normalized relative path.
 
-This function is ideal for inspecting large sets of files or previewing content in scripts and documentation workflows.
+If the terminal supports ANSI escape sequences, the function highlights headers in cyan and file contents in gray for better readability.
+
+This is particularly useful for inspecting file sets in documentation, debugging, or scripting contexts, where seeing headers and content together improves context and visibility.
 
 .PARAMETER Path
-One or more directories to traverse. Defaults to the current directory ('.').
-Accepts pipeline input and property binding.
+One or more directories to scan recursively for files.
+Accepts relative or absolute paths. Defaults to the current directory (`.`).
+Can also be provided via pipeline or bound by property name.
+
+.PARAMETER IncludeRegex
+An array of regular expressions used to include files based on their relative path.
+Defaults to `'.*'`, which includes all files.
+
+.PARAMETER ExcludeRegex
+An array of regular expressions used to exclude files from matching.
+Exclusion patterns override any include matches.
 
 .EXAMPLE
-PS> Show-FileContents -Path './docs'
+Show-FileContents -Path './docs'
 
-Displays the contents of all files under the `./docs` directory.
+Displays all files under the `./docs` directory with formatted headers and content.
 
 .EXAMPLE
-PS> './src', './examples' | Show-FileContents
+'./src', './examples' | Show-FileContents
 
-Displays the contents of files under multiple directories provided via pipeline.
+Displays files from multiple directories provided via the pipeline.
+
+.EXAMPLE
+Show-FileContents -Path './lib' -IncludeRegex '.*\.ps1$' -ExcludeRegex 'tests/'
+
+Shows only `.ps1` files in `./lib`, excluding those inside `tests/` folders.
 
 .NOTES
-- Uses `Invoke-FileTransform` internally for traversal and filtering.
-- Outputs colored headers and contents if terminal supports it.
-- Uses ANSI escape codes for color formatting.
-
+- Uses `Invoke-FileTransform` internally for directory traversal and filtering.
+- If the host supports ANSI escape sequences, headers are colored cyan and content gray.
+- Uses `Format-Cyan` and `Format-Gray` internally for color formatting.
 #>
 function Show-FileContents {
     [Alias('sfc')]
+    [OutputType([void])]
     [CmdletBinding()]
     param (
         [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$Path = @('.')
+        [string[]]$Path = @('.'),
+
+        [Alias('Include', 'IncludeFile', 'IncludePatterns', 'Like')]
+        [string[]]$IncludeRegex = @('.*'),
+
+        [Alias('Exclude', 'ExcludeFile', 'ExcludePatterns')]
+        [string[]]$ExcludeRegex = @()
     )
 
     $supportsColor = $Host.UI.SupportsVirtualTerminal
 
-    Invoke-FileTransform -Path $Path -FileProcessor {
+    Invoke-FileTransform -Path $Path `
+        -IncludeRegex $IncludeRegex `
+        -ExcludeRegex $ExcludeRegex `
+        -FileProcessor {
         param ($file, $header)
 
         $colorHeader = $supportsColor ? (Format-Cyan $header) : $header
