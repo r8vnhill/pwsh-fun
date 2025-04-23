@@ -2,7 +2,7 @@ Describe 'Compress-FilteredFiles' {
 
     BeforeAll {
         $script:preloadedModules = Get-Module -Name Fun.Files, Assertions
-        . "$PSScriptRoot\..\Setup.ps1"
+        . "$PSScriptRoot\..\Initialize-FilesTestSuite.ps1"
     }
 
     BeforeEach {

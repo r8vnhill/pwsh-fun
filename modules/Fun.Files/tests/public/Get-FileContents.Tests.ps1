@@ -3,7 +3,7 @@ Describe 'Get-FileContents' {
     BeforeAll {
         # Capture pre-existing modules so we can skip unloading them
         $script:preloadedModules = Get-Module -Name Fun.Files, Assertions
-        . "$PSScriptRoot\..\Setup.ps1"
+        . "$PSScriptRoot\..\Initialize-FilesTestSuite.ps1"
 
         # Crea estructura de archivos de prueba
         $files = New-TestDirectoryWithFiles -BaseName 'GetFileContentsTest'
