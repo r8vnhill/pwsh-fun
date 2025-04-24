@@ -136,8 +136,8 @@ This function is designed to be idempotent and safe to call during cleanup. It w
 function Remove-TestEnvironment {
     param (
         [string]$TempDir,
-        [System.Collections.IEnumerable]$PreloadedModules,
-        [string[]]$ModuleNames = @('Assertions', 'Fun.Files')
+        [PSModuleInfo[]]$PreloadedModules,
+        [string[]]$ModuleNames
     )
 
     Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
