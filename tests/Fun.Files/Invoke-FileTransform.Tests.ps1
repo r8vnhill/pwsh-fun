@@ -3,7 +3,7 @@ Describe 'Invoke-FileTransform' {
     BeforeAll {
         # Capture pre-existing modules so we can skip unloading them
         $script:preloadedModules = Get-Module -Name 'Fun.Files', 'Assertions'
-        . "$PSScriptRoot\..\Initialize-FilesTestSuite.ps1"
+        . "$PSScriptRoot\Setup.ps1"
 
         # Create a temporary directory and file structure for testing
         $paths = New-TestDirectoryWithFiles -BaseName 'InvokeFileTransformTest'

@@ -15,15 +15,22 @@ This must match the folder and `.psd1` file name.
 A list of command names that must be available after importing the module.
 If any are missing, an exception is thrown.
 
+.PARAMETER AdditionalImports
+A list of additional module names to import alongside the main module.
+These modules are expected to be in the same directory as the main module.
+This is useful for loading dependencies or related modules.
+
 .PARAMETER Root
 The root path that contains the `modules/` folder.
 Defaults to the project root (two levels up from the current script).
 
 .PARAMETER ForceImport
 If specified, forces re-importing the module even if it is already loaded.
+This is useful for test scenarios where the module may have changed.
 
 .PARAMETER VerboseOnSuccess
 If specified, emits verbose output confirming the module and each command were successfully found and imported.
+This is useful for debugging and ensuring the test environment is correctly set up.
 
 .EXAMPLE
 PS> Initialize-TestSuite -Module 'Fun.Files' -RequiredCommands 'Get-FileContents', 'Show-FileContents'
@@ -46,11 +53,31 @@ function Initialize-TestSuite {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$Module,
 
         [Parameter(Mandatory)]
+        [ValidateScript({ $_ | Assert-CommandName -ErrorAction Stop })]
         [string[]]$RequiredCommands,
 
+        [ValidateScript({
+                foreach ($import in $_) {
+                    $ext = [System.IO.Path]::GetExtension($import)
+                    if ($ext -ne '.psd1') {
+                        throw "❌ Invalid module extension '$ext'. Only '.psd1' is allowed."
+                    }
+                }
+                return $true
+            })]
+        [string[]]$AdditionalImports = @(),
+
+        [ValidateScript({
+                if (-not (Test-Path -LiteralPath $_)) {
+                    throw "❌ Path '$_' does not exist."
+                }
+                return $true
+            })]
+        [ValidateNotNullOrEmpty()]
         [string]$Root = (Join-Path -Path $PSScriptRoot -ChildPath '..\..' -Resolve),
 
         [switch]$ForceImport,
@@ -59,8 +86,8 @@ function Initialize-TestSuite {
     )
 
     $modulePath = Join-Path -Path $Root -ChildPath "modules\$Module\$Module.psd1"
-
-    Assert-ModulePathExists -ModulePath $modulePath
+    
+    $AdditionalImports | Import-Module
 
     Import-TestModule -ModulePath $modulePath `
         -ForceImport:$ForceImport `
@@ -69,57 +96,6 @@ function Initialize-TestSuite {
     Assert-ModuleCommandsPresent -Module $Module `
         -RequiredCommands $RequiredCommands `
         -VerboseOnSuccess:$VerboseOnSuccess
-}
-
-<#
-.SYNOPSIS
-Asserts that a module path exists on disk.
-
-.DESCRIPTION
-`Assert-ModulePathExists` verifies that the specified file system path exists. 
-If the path does not resolve, the function throws a `System.IO.FileNotFoundException`.
-
-This is useful for test setups, module initialization routines, or enforcing preconditions in automation scripts where a module path must exist.
-
-.PARAMETER ModulePath
-The file path to the module to verify.
-Must be a non-empty string.
-Accepts pipeline input.
-
-.OUTPUTS
-None. This function emits no output when the path exists.
-
-.NOTES
-- Throws `[System.IO.FileNotFoundException]` if the path does not exist.
-- Writes a verbose message if the path exists.
-
-.EXAMPLE
-PS> Assert-ModulePathExists -ModulePath './modules/MyModule/MyModule.psd1'
-
-Checks that the specified module manifest file exists. Throws if missing.
-
-.EXAMPLE
-PS> './MyModule.psd1', './Other.psd1' | Assert-ModulePathExists
-
-Validates multiple paths passed through the pipeline.
-
-#>
-function script:Assert-ModulePathExists {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory, ValueFromPipeline)]
-        [ValidateNotNullOrEmpty()]
-        [string]$ModulePath
-    )
-    
-    process {
-        if (-not (Test-Path -LiteralPath $ModulePath)) {
-            $message = "Module path not found: '$ModulePath'"
-            throw [System.IO.FileNotFoundException]::new($message)
-        }
-    
-        Write-Verbose "✅ Module path exists: $ModulePath"
-    }
 }
 
 <#
@@ -164,15 +140,15 @@ function script:Import-TestModule {
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
         [ValidateScript({
-            if (-not (Test-Path -LiteralPath $_)) {
-                throw "❌ Path '$_' does not exist."
-            }
-            $ext = [System.IO.Path]::GetExtension($_)
-            if ($ext -ne '.psd1' -and $ext -ne '.psm1') {
-                throw "❌ Invalid module extension '$ext'. Only '.psd1' and '.psm1' are allowed."
-            }
-            return $true
-        })]
+                if (-not (Test-Path -LiteralPath $_)) {
+                    throw "❌ Path '$_' does not exist."
+                }
+                $ext = [System.IO.Path]::GetExtension($_)
+                if ($ext -ne '.psd1' -and $ext -ne '.psm1') {
+                    throw "❌ Invalid module extension '$ext'. Only '.psd1' and '.psm1' are allowed."
+                }
+                return $true
+            })]
         [string]$ModulePath,
 
         [switch]$ForceImport,
