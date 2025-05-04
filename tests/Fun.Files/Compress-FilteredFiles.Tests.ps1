@@ -2,7 +2,6 @@ Describe 'Compress-FilteredFiles' {
 
     # Run once before all tests
     BeforeAll {
-        # Ensure necessary modules are preloaded
         $script:preloadedModules = Get-Module -Name Fun.Files, Assertions
 
         # Load shared test helpers (e.g., temp file generator)
@@ -27,6 +26,17 @@ Describe 'Compress-FilteredFiles' {
     AfterEach {
         Remove-Item $script:zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item $script:temp.Base -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    AfterAll {
+        foreach ($modName in @('Fun.Files', 'Assertions')) {
+            $wasPreloaded = $script:preloadedModules | Where-Object { 
+                $_.Name -eq $modName 
+            }
+            if (-not $wasPreloaded) {
+                Remove-Module -Name $modName -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     It 'creates a zip archive with only included files' {

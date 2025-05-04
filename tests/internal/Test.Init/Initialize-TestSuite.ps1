@@ -16,7 +16,7 @@ function Initialize-TestSuite {
 
         [ValidateScript({ Assert-PathExists -Path $_ -ErrorAction Stop })]
         [ValidateNotNullOrEmpty()]
-        [string]$Root = (Join-Path -Path $PSScriptRoot -ChildPath '..\..' -Resolve),
+        [string]$Root = (Join-Path -Path $PSScriptRoot -ChildPath '..\..\..' -Resolve),
 
         [switch]$ForceImport,
 
@@ -27,7 +27,7 @@ function Initialize-TestSuite {
     
     $AdditionalImports | Import-Module -Force:$ForceImport
 
-    Import-Module -Name $modulePath -Force:$ForceImport -ErrorAction Stop
+    Import-Module -Name $modulePath -Force:$ForceImport -ErrorAction Stop -Global
 
     Assert-ModuleCommandsPresent -Module $Module `
         -RequiredCommands $RequiredCommands `

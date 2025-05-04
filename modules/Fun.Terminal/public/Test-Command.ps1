@@ -22,8 +22,8 @@ function Test-Command {
             $result = [CommandCheck]::new(
                 $cmdName,
                 [bool]$cmd,
-                $cmd?.Source,
-                $cmd?.CommandType
+                $cmd.Source,
+                $cmd.CommandType
             )
 
             if (-not $OnlyExisting -or $result.Exists) {
@@ -37,13 +37,13 @@ class CommandCheck {
     [string]$Name
     [bool]$Exists
     [string]$Path
-    [System.Management.Automation.CommandTypes]$CommandType
+    [System.Nullable[System.Management.Automation.CommandTypes]]$CommandType
 
     CommandCheck(
         [string]$Name,
         [bool]$Exists,
         [string]$Path,
-        [System.Management.Automation.CommandTypes]$CommandType
+        [System.Nullable[System.Management.Automation.CommandTypes]]$CommandType
     ) {
         $this.Name = $Name
         $this.Exists = $Exists
