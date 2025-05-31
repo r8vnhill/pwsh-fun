@@ -52,18 +52,19 @@ function Install-FunModules {
         return
     }
 
-    Get-ChildItem -Path $modulesPath -Directory | ForEach-Object {
-        $moduleName = $_.Name
-        $psm1Path = Join-Path $_.FullName "$moduleName.psm1"
+    Get-ChildItem -Path $modulesPath -Exclude '*Fun.OCD*' -Directory | 
+        ForEach-Object {
+            $moduleName = $_.Name
+            $psm1Path = Join-Path $_.FullName "$moduleName.psm1"
 
-        if (-not (Test-Path $psm1Path)) {
-            Write-Warning "⚠️  Skipped: $moduleName.psm1 not found in $($_.FullName)"
-            return
-        }
+            if (-not (Test-Path $psm1Path)) {
+                Write-Warning "⚠️  Skipped: $moduleName.psm1 not found in $($_.FullName)"
+                return
+            }
 
-        if ($PSCmdlet.ShouldProcess($moduleName, 'Import module')) {
-            Import-Module $psm1Path -Force -Scope Global
-            Write-Host "✅ Imported module: $moduleName" -ForegroundColor Green
+            if ($PSCmdlet.ShouldProcess($moduleName, 'Import module')) {
+                Import-Module $psm1Path -Force -Scope Global
+                Write-Host "✅ Imported module: $moduleName" -ForegroundColor Green
+            }
         }
-    }
 }

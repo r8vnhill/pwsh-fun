@@ -9,6 +9,7 @@ function Test-Command {
             ValueFromPipeline,
             ValueFromPipelineByPropertyName
         )]
+        [ValidateNotNullOrEmpty()]
         [string[]]$Command,
 
         [switch]$OnlyExisting
@@ -22,7 +23,7 @@ function Test-Command {
             $result = [CommandCheck]::new(
                 $cmdName,
                 [bool]$cmd,
-                $cmd.Source,
+                $cmd.Source ? $cmd.Source : ($cmd.Path ? $cmd.Path : $null),
                 $cmd.CommandType
             )
 
@@ -33,10 +34,59 @@ function Test-Command {
     }
 }
 
+<#
+.SYNOPSIS
+Represents the result of checking whether a PowerShell command exists.
+
+.DESCRIPTION
+The `CommandCheck` class encapsulates metadata about a given PowerShell command name.
+It includes information such as:
+- Whether the command exists in the current session.
+- The type of the command (e.g., Cmdlet, Function, Alias, Application).
+- The source path or module name associated with the command.
+
+This class is typically used by tooling or scripts to analyze command availability in a structured and programmatic way.
+
+.PROPERTIES
+Name         - The name of the command being checked.
+Exists       - A boolean indicating whether the command was found.
+Path         - The source path or module name of the command. May be $null if unknown or not found.
+CommandType  - The command type (Cmdlet, Function, Alias, Application). May be $null for unknown or missing commands.
+
+.CONSTRUCTORS
+CommandCheck([string]$Name, [bool]$Exists, [string]$Path, [CommandTypes]$CommandType)
+    Creates a new instance representing a known command and its metadata.
+
+CommandCheck([string]$Name)
+    Creates a new instance representing a command that was not found.
+
+.METHODS
+ToString()
+    Returns a human-readable summary.
+    For found commands: "<Name>: <Type> @ <Path>".
+    For missing commands: "<Name>: Not Found".
+
+.EXAMPLE
+$check = [CommandCheck]::new('Get-Item', $true, 'Microsoft.PowerShell.Management', [System.Management.Automation.CommandTypes]::Cmdlet)
+$check.ToString()
+# Output: Get-Item: Cmdlet @ Microsoft.PowerShell.Management
+
+.EXAMPLE
+$missing = [CommandCheck]::new('nonexistent-command')
+$missing.ToString()
+# Output: nonexistent-command: Not Found
+
+.NOTES
+Intended for use with utilities such as Test-Command that inspect the command table in PowerShell.
+#>
 class CommandCheck {
     [string]$Name
     [bool]$Exists
+
+    [AllowNull()]
     [string]$Path
+
+    [AllowNull()]
     [System.Nullable[System.Management.Automation.CommandTypes]]$CommandType
 
     CommandCheck(
@@ -51,11 +101,18 @@ class CommandCheck {
         $this.CommandType = $CommandType
     }
 
+    CommandCheck([string]$Name) {
+        $this.Name = $Name
+        $this.Exists = $false
+        $this.Path = $null
+        $this.CommandType = $null
+    }
+
     [string] ToString() {
-        if ($this.Exists) {
-            return "$($this.Name): $($this.CommandType) @ $($this.Path)"
+        return if ($this.Exists) {
+            "$($this.Name): $($this.CommandType ?? '?') @ $($this.Path ?? 'unknown path')"
         } else {
-            return "$($this.Name): Not Found"
+            "$($this.Name): Not Found"
         }
     }
 }
