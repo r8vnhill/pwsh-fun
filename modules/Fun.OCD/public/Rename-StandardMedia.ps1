@@ -2,15 +2,17 @@ function Rename-StandardMedia {
     [Alias('doctor')]
     [CmdletBinding(DefaultParameterSetName = 'Document', SupportsShouldProcess)]
     param (
-        [switch] $Anime,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'Document', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Parameter(Mandatory = $true, ParameterSetName = 'Anime', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        
+        [Parameter(Mandatory, ParameterSetName = 'Document', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Mandatory, ParameterSetName = 'Anime', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateScript({ Test-Path $_ })]
         [string] $Item,
+        
+        [Parameter(ParameterSetName = 'Anime')]
+        [switch] $Anime,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'Document')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'Anime')]
+        [Parameter(Mandatory, ParameterSetName = 'Document')]
+        [Parameter(Mandatory, ParameterSetName = 'Anime')]
         [Alias('t')]
         [string] $Title,
 
