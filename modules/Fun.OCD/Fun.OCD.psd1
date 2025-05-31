@@ -8,7 +8,7 @@
     Copyright         = '(c) Ignacio Slater-Muñoz. All rights reserved.'
     Description       = 'Tools to please my OCD.'
 
-    FunctionsToExport = @('Rename-StandardMedia')
+    FunctionsToExport = @('Rename-StandardMedia', 'Convert-OpusToMp3', 'Install-SSHKey')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @('doctor')
