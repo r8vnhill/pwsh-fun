@@ -45,13 +45,13 @@ function Rename-StandardMedia {
     process {
         $extension = [System.IO.Path]::GetExtension($Item)
 
-        $baseName = if ($PSCmdlet.ParameterSetName -eq 'Anime') {
+        $baseName = ($PSCmdlet.ParameterSetName -eq 'Anime') ? {
             Get-BaseNameForAnime -Title $Title -Year $Year -Season $Season -Arc $Arc -Studios $Studios
-        } else {
+        } : {
             Get-BaseNameForDocument -Title $Title -Year $Year -Edition $Edition -Publisher $Publisher -Authors $Authors
         }
 
-        $safeName = Sanitize-FileName -Input $baseName
+        $safeName = Format-FileName -FileName $baseName
         $newName = "$safeName$extension"
 
         if ($PSCmdlet.ShouldProcess($Item, "Rename to '$newName'")) {
@@ -85,9 +85,9 @@ function Get-BaseNameForDocument {
     )
     $detailsPart = Get-DetailPart -Parts @($Year, $Edition, $Publisher)
 
-    $authorPart = if ($Authors -and ($Authors -join '').Trim().Length -gt 0) {
+    $authorPart = ($Authors -and ($Authors -join '').Trim().Length -gt 0) ? {
         ' - ' + ($Authors -join ', ')
-    } else {
+    } : {
         ''
     }
 
@@ -103,14 +103,14 @@ function Get-SeasonArcPart {
     if ($Season) { $list += $Season }
     if ($Arc) { $list += $Arc }
 
-    return if ($list.Count -gt 0) { ' (' + ($list -join ', ') + ')' } else { '' }
+    return ($list.Count -gt 0) ? { ' (' + ($list -join ', ') + ')' } : { '' }
 }
 
 function Get-StudioPart {
     param (
         [string[]] $Studios
     )
-    return if ($Studios) { ' [' + ($Studios -join ', ') + ']' } else { '' }
+    return ($Studios) ? { ' [' + ($Studios -join ', ') + ']' } : { '' }
 }
 
 function Get-DetailPart {
@@ -118,7 +118,7 @@ function Get-DetailPart {
         [string[]] $Parts
     )
     $filtered = $Parts | Where-Object { $_ }
-    return if ($filtered.Count -gt 0) { ' (' + ($filtered -join ', ') + ')' } else { '' }
+    return ($filtered.Count -gt 0) ? { ' (' + ($filtered -join ', ') + ')' } : { '' }
 }
 
 function Format-FileName {
