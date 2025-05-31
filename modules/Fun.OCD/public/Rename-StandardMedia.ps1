@@ -3,9 +3,9 @@ function Rename-StandardMedia {
     [CmdletBinding(DefaultParameterSetName = 'Document', SupportsShouldProcess)]
     param (
         [switch] $Anime,
-        # Every invocation needs a file path and a title, regardless of set.
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Document', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Parameter(Mandatory = $true, ParameterSetName = 'Anime',   ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Anime', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateScript({ Test-Path $_ })]
         [string] $Item,
 
@@ -14,7 +14,6 @@ function Rename-StandardMedia {
         [Alias('t')]
         [string] $Title,
 
-        # ——————— Document‐only parameters (ParameterSetName = 'Document') ———————
         [Parameter(ParameterSetName = 'Document')]
         [Alias('by')]
         [string[]] $Authors,
@@ -32,7 +31,6 @@ function Rename-StandardMedia {
         [Alias('e')]
         [string] $Edition,
 
-        # ——————— Anime‐only parameters (ParameterSetName = 'Anime') ———————
         [Parameter(ParameterSetName = 'Anime')]
         [Alias('s')]
         [string[]] $Studios,
@@ -45,72 +43,94 @@ function Rename-StandardMedia {
     )
 
     process {
-        # Get the extension once
         $extension = [System.IO.Path]::GetExtension($Item)
 
-        if ($PSCmdlet.ParameterSetName -eq 'Anime') {
-            #
-            # === Anime Mode ===
-            # Format: Title [Studio1, Studio2] (Season, Arc)
-            #
-            # Construct "[Studio1, Studio2]" part if any studios provided.
-            $studioPart = ''
-            if ($Studios) {
-                $studioPart = " [" + ($Studios -join ', ') + "]"
-            }
-
-            # Build a list of season/arc details
-            $detailsList = @()
-            if ($Season) { $detailsList += $Season }
-            if ($Arc)    { $detailsList += $Arc }
-
-            $detailsPart = ''
-            if ($detailsList.Count -gt 0) {
-                $detailsPart = " (" + ($detailsList -join ', ') + ")"
-            }
-
-            $baseName = "$Title$studioPart$detailsPart"
-        }
-        else {
-            #
-            # === Document Mode ===
-            # Format: Title - Author1, Author2 (Year, Edition, Publisher)
-            #
-            # Build author part if present
-            $authorPart = ''
-            if ($Authors -and ($Authors -join '').Trim().Length -gt 0) {
-                $authorPart = $Authors -join ', '
-            }
-
-            # Build detail list in order: Year, Edition, Publisher
-            $detailsList = @()
-            if ($Year)      { $detailsList += $Year }
-            if ($Edition)   { $detailsList += $Edition }
-            if ($Publisher) { $detailsList += $Publisher }
-
-            $detailsPart = ''
-            if ($detailsList.Count -gt 0) {
-                $detailsPart = " (" + ($detailsList -join ', ') + ")"
-            }
-
-            if ($authorPart) {
-                $baseName = "$Title - $authorPart$detailsPart"
-            }
-            else {
-                $baseName = "$Title$detailsPart"
-            }
+        $baseName = if ($PSCmdlet.ParameterSetName -eq 'Anime') {
+            Get-BaseNameForAnime -Title $Title -Year $Year -Season $Season -Arc $Arc -Studios $Studios
+        } else {
+            Get-BaseNameForDocument -Title $Title -Year $Year -Edition $Edition -Publisher $Publisher -Authors $Authors
         }
 
-        # Sanitize any invalid file-name characters
-        $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() |
-            ForEach-Object { [Regex]::Escape($_) } |
-            Join-String -Separator ''
-        $pattern = "[$invalidChars]"
-        $safeName = [Regex]::Replace($baseName, $pattern, '')
-        $newName  = "$safeName$extension"
+        $safeName = Sanitize-FileName -Input $baseName
+        $newName = "$safeName$extension"
 
         if ($PSCmdlet.ShouldProcess($Item, "Rename to '$newName'")) {
             Rename-Item -Path $Item -NewName $newName
         }
     }
+}
+
+function Get-BaseNameForAnime {
+    param (
+        [string] $Title,
+        [string] $Year,
+        [string] $Season,
+        [string] $Arc,
+        [string[]] $Studios
+    )
+    $yearPart = if ($Year) { " ($Year)" } else { '' }
+    $seasonArcPart = Get-SeasonArcPart -Season $Season -Arc $Arc
+    $studioPart = Get-StudioPart -Studios $Studios
+
+    return "$Title$yearPart$seasonArcPart$studioPart"
+}
+
+function Get-BaseNameForDocument {
+    param (
+        [string] $Title,
+        [string] $Year,
+        [string] $Edition,
+        [string] $Publisher,
+        [string[]] $Authors
+    )
+    $detailsPart = Get-DetailPart -Parts @($Year, $Edition, $Publisher)
+
+    $authorPart = if ($Authors -and ($Authors -join '').Trim().Length -gt 0) {
+        ' - ' + ($Authors -join ', ')
+    } else {
+        ''
+    }
+
+    return "$Title$detailsPart$authorPart"
+}
+
+function Get-SeasonArcPart {
+    param (
+        [string] $Season,
+        [string] $Arc
+    )
+    $list = @()
+    if ($Season) { $list += $Season }
+    if ($Arc) { $list += $Arc }
+
+    return if ($list.Count -gt 0) { ' (' + ($list -join ', ') + ')' } else { '' }
+}
+
+function Get-StudioPart {
+    param (
+        [string[]] $Studios
+    )
+    return if ($Studios) { ' [' + ($Studios -join ', ') + ']' } else { '' }
+}
+
+function Get-DetailPart {
+    param (
+        [string[]] $Parts
+    )
+    $filtered = $Parts | Where-Object { $_ }
+    return if ($filtered.Count -gt 0) { ' (' + ($filtered -join ', ') + ')' } else { '' }
+}
+
+function Format-FileName {
+    [CmdletBinding()]
+    param (
+        [string] $FileName
+    )
+
+    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() |
+        ForEach-Object { [Regex]::Escape($_) } |
+        Join-String -Separator ''
+    $pattern = "[$invalidChars]"
+
+    return [Regex]::Replace($FileName, $pattern, '_')
 }
