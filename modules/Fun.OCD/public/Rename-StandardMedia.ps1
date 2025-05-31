@@ -20,6 +20,7 @@ function Rename-StandardMedia {
         [string[]] $Authors,
 
         [Parameter(ParameterSetName = 'Document')]
+        [Parameter(ParameterSetName = 'Anime')]
         [Alias('y')]
         [string] $Year,
 
