@@ -3,7 +3,7 @@ function Import-FunOCDScripts {
     param ()
 
     # Locate “public” folder relative to this module
-    $moduleFolder = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $moduleFolder = $PSScriptRoot
     $publicFolder = Join-Path $moduleFolder 'public'
 
     if (-not (Test-Path $publicFolder)) {
