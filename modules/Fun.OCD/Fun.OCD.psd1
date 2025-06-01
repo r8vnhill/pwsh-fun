@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Fun.OCD.psm1'
-    ModuleVersion     = '0.0.1'
+    ModuleVersion     = '0.2.0'
     CompatiblePSEditions = @('Core', 'Desktop')
     GUID              = 'b4b98180-9095-448d-aeba-73233ba84e60'
     Author            = 'Ignacio Slater-Muñoz'
@@ -8,7 +8,7 @@
     Copyright         = '(c) Ignacio Slater-Muñoz. All rights reserved.'
     Description       = 'Tools to please my OCD.'
 
-    FunctionsToExport = @('Rename-StandardMedia', 'Convert-OpusToMp3', 'Install-SSHKey')
+    FunctionsToExport = @('Rename-StandardMedia', 'Convert-AudioToMp3', 'Install-SSHKey')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @('doctor')
