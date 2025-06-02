@@ -1,6 +1,6 @@
 @{
     RootModule        = 'Fun.OCD.psm1'
-    ModuleVersion     = '0.2.0'
+    ModuleVersion     = '0.3.0'
     CompatiblePSEditions = @('Core', 'Desktop')
     GUID              = 'b4b98180-9095-448d-aeba-73233ba84e60'
     Author            = 'Ignacio Slater-Muñoz'
@@ -8,14 +8,14 @@
     Copyright         = '(c) Ignacio Slater-Muñoz. All rights reserved.'
     Description       = 'Tools to please my OCD.'
 
-    FunctionsToExport = @('Rename-StandardMedia', 'Convert-AudioToMp3', 'Install-SSHKey')
+    FunctionsToExport = @('Rename-StandardMedia', 'Convert-AudioToMp3', 'Install-SSHKey', 'Remove-DirectoryContents')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @('doctor')
 
     PrivateData = @{
         PSData = @{
-            Tags        = @('powershell', 'media', 'rename')
+            Tags        = @('powershell', 'media', 'rename', 'audio', 'video', 'cleanup', 'ffmpeg', 'ssh')
             LicenseUri   = 'https://opensource.org/license/bsd-2-clause'
             ProjectUri   = 'https://github.com/r8vnhill/pwsh-fun'
         }
