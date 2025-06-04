@@ -116,7 +116,7 @@ function Get-BaseNameForAnime {
         $studioPart
     ) | Where-Object { $_ -and $_ -ne '' }
 
-    return ($parts -join ' - ')
+    return ($parts -join ' ')
 }
 
 function Get-BaseNameForDocument {
