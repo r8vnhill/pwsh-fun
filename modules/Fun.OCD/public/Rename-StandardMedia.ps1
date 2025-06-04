@@ -41,14 +41,30 @@ function Rename-StandardMedia {
         [string] $Season,
 
         [Parameter(ParameterSetName = 'Anime')]
-        [string] $Arc
+        [string] $Arc,
+
+        
+        [Parameter(ParameterSetName = 'Anime')]
+        [Alias('n')]
+        [int] $EpisodeNumber,
+
+        [Parameter(ParameterSetName = 'Anime')]
+        [Alias('ep')]
+        [string] $EpisodeName
     )
 
     process {
         $extension = [System.IO.Path]::GetExtension($Item)
 
         $baseName = ($PSCmdlet.ParameterSetName -eq 'Anime') ? (
-            Get-BaseNameForAnime -Title $Title -Year $Year -Season $Season -Arc $Arc -Studios $Studios
+            Get-BaseNameForAnime `
+                -Title $Title `
+                -Year $Year `
+                -Season $Season `
+                -Arc $Arc `
+                -Studios $Studios `
+                -EpisodeNumber $EpisodeNumber `
+                -EpisodeName $EpisodeName
         ) : (
             Get-BaseNameForDocument -Title $Title -Year $Year -Edition $Edition -Publisher $Publisher -Authors $Authors
         )
@@ -63,18 +79,44 @@ function Rename-StandardMedia {
 }
 
 function Get-BaseNameForAnime {
+    [CmdletBinding()]
     param (
         [string] $Title,
         [string] $Year,
         [string] $Season,
         [string] $Arc,
-        [string[]] $Studios
+        [string[]] $Studios,
+        [int] $EpisodeNumber,
+        [string] $EpisodeName
     )
+
     $yearPart = if ($Year) { " ($Year)" } else { '' }
     $seasonArcPart = Get-SeasonArcPart -Season $Season -Arc $Arc
+
+    $episodePart = if ($EpisodeNumber) {
+        $ep = 'E' + ('{0:D2}' -f $EpisodeNumber)
+        if ($EpisodeName) {
+            "$ep - $EpisodeName"
+        } else {
+            $ep
+        }
+    } elseif ($EpisodeName) {
+        $EpisodeName
+    } else {
+        ''
+    }
+
     $studioPart = Get-StudioPart -Studios $Studios
 
-    return "$Title$yearPart$seasonArcPart$studioPart"
+    $parts = @(
+        $Title
+        $yearPart
+        $seasonArcPart
+        $episodePart
+        $studioPart
+    ) | Where-Object { $_ -and $_ -ne '' }
+
+    return ($parts -join ' - ')
 }
 
 function Get-BaseNameForDocument {
