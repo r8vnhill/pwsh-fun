@@ -94,7 +94,7 @@ function Get-BaseNameForAnime {
     $seasonArcPart = Get-SeasonArcPart -Season $Season -Arc $Arc
 
     $episodePart = if ($EpisodeNumber) {
-        $ep = 'E' + ('{0:D2}' -f $EpisodeNumber)
+        $ep = 'E' + ('{0:D3}' -f $EpisodeNumber)
         if ($EpisodeName) {
             "$ep - $EpisodeName"
         } else {
@@ -116,7 +116,7 @@ function Get-BaseNameForAnime {
         $studioPart
     ) | Where-Object { $_ -and $_ -ne '' }
 
-    return ($parts -join ' ')
+    return ($parts -join '')
 }
 
 function Get-BaseNameForDocument {
