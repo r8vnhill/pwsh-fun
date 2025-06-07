@@ -5,27 +5,35 @@ function Rename-StandardMedia {
         
         [Parameter(Mandatory, ParameterSetName = 'Document', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Parameter(Mandatory, ParameterSetName = 'Anime', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Mandatory, ParameterSetName = 'Comic', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateScript({ Test-Path $_ })]
         [string] $Item,
         
         [Parameter(ParameterSetName = 'Anime')]
         [switch] $Anime,
 
+        [Parameter(ParameterSetName = 'Comic')]
+        [switch] $Comic,
+
         [Parameter(Mandatory, ParameterSetName = 'Document')]
         [Parameter(Mandatory, ParameterSetName = 'Anime')]
+        [Parameter(Mandatory, ParameterSetName = 'Comic')]
         [Alias('t')]
         [string] $Title,
 
         [Parameter(ParameterSetName = 'Document')]
+        [Parameter(ParameterSetName = 'Comic')]
         [Alias('by')]
         [string[]] $Authors,
 
         [Parameter(ParameterSetName = 'Document')]
         [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Comic')]
         [Alias('y')]
         [string] $Year,
 
         [Parameter(ParameterSetName = 'Document')]
+        [Parameter(ParameterSetName = 'Comic')]
         [Alias('ed')]
         [string] $Publisher,
 
@@ -41,9 +49,21 @@ function Rename-StandardMedia {
         [string] $Season,
 
         [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Comic')]
         [string] $Arc,
 
-        
+        [Parameter(ParameterSetName = 'Comic')]
+        [string] $Volume,
+
+        [Parameter(ParameterSetName = 'Comic')]
+        [string] $VolumeName,
+
+        [Parameter(ParameterSetName = 'Comic')]
+        [int] $IssueNumber,
+
+        [Parameter(ParameterSetName = 'Comic')]
+        [string] $IssueName,
+
         [Parameter(ParameterSetName = 'Anime')]
         [Alias('n')]
         [int] $EpisodeNumber,
@@ -56,18 +76,36 @@ function Rename-StandardMedia {
     process {
         $extension = [System.IO.Path]::GetExtension($Item)
 
-        $baseName = ($PSCmdlet.ParameterSetName -eq 'Anime') ? (
-            Get-BaseNameForAnime `
-                -Title $Title `
-                -Year $Year `
-                -Season $Season `
-                -Arc $Arc `
-                -Studios $Studios `
-                -EpisodeNumber $EpisodeNumber `
-                -EpisodeName $EpisodeName
-        ) : (
-            Get-BaseNameForDocument -Title $Title -Year $Year -Edition $Edition -Publisher $Publisher -Authors $Authors
-        )
+        $baseName = switch ($PSCmdlet.ParameterSetName) {
+            'Anime' {
+                Get-BaseNameForAnime `
+                    -Title $Title `
+                    -Year $Year `
+                    -Season $Season `
+                    -Arc $Arc `
+                    -Studios $Studios `
+                    -EpisodeNumber $EpisodeNumber `
+                    -EpisodeName $EpisodeName
+            }
+            'Comic' {
+                Get-BaseNameForComic `
+                    -Title $Title `
+                    -Year $Year `
+                    -Arc $Arc `
+                    -Volume $Volume `
+                    -VolumeName $VolumeName `
+                    -IssueNumber $IssueNumber `
+                    -IssueName $IssueName
+            }
+            default {
+                Get-BaseNameForDocument `
+                    -Title $Title `
+                    -Year $Year `
+                    -Edition $Edition `
+                    -Publisher $Publisher `
+                    -Authors $Authors
+            }
+        }
 
         $safeName = Format-FileName -FileName $baseName
         $newName = "$safeName$extension"
@@ -114,6 +152,58 @@ function Get-BaseNameForAnime {
         $seasonArcPart
         $episodePart
         $studioPart
+    ) | Where-Object { $_ -and $_ -ne '' }
+
+    return ($parts -join '')
+}
+
+function Get-BaseNameForComic {
+    [CmdletBinding()]
+    param (
+        [string] $Title,
+        [string] $Year,
+        [string] $Arc,
+        [string] $Volume,
+        [string] $VolumeName,
+        [int]    $IssueNumber,
+        [string] $IssueName
+    )
+
+    # Base name components
+    $yearPart = if ($Year) { " ($Year)" } else { '' }
+
+    $volumePart = if ($Volume) {
+        " Vol. $Volume"
+    } else { '' }
+
+    $volumeNamePart = if ($VolumeName) {
+        ": $VolumeName"
+    } else { '' }
+
+    $arcPart = if ($Arc) {
+        " [$Arc]"
+    } else { '' }
+
+    $issuePart = if ($IssueNumber) {
+        $num = '#{0:D3}' -f $IssueNumber
+        if ($IssueName) {
+            " - $num - $IssueName"
+        } else {
+            " - $num"
+        }
+    } elseif ($IssueName) {
+        " - $IssueName"
+    } else {
+        ''
+    }
+
+    $parts = @(
+        $Title
+        $yearPart
+        $volumePart
+        $volumeNamePart
+        $arcPart
+        $issuePart
     ) | Where-Object { $_ -and $_ -ne '' }
 
     return ($parts -join '')
