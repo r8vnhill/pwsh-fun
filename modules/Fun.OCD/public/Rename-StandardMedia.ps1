@@ -128,8 +128,9 @@ function Get-BaseNameForAnime {
         [string] $EpisodeName
     )
 
-    $yearPart = if ($Year) { " ($Year)" } else { '' }
-    $seasonArcPart = Get-SeasonArcPart -Season $Season -Arc $Arc
+    $yearPart     = if ($Year) { "($Year)" } else { $null }
+    $seasonArc    = Get-SeasonArcPart -Season $Season -Arc $Arc
+    $studioPart   = Get-StudioPart -Studios $Studios
 
     $episodePart = if ($EpisodeNumber) {
         $ep = 'E' + ('{0:D3}' -f $EpisodeNumber)
@@ -141,20 +142,22 @@ function Get-BaseNameForAnime {
     } elseif ($EpisodeName) {
         $EpisodeName
     } else {
-        ''
+        $null
     }
-
-    $studioPart = Get-StudioPart -Studios $Studios
 
     $parts = @(
         $Title
         $yearPart
-        $seasonArcPart
+        $seasonArc
         $episodePart
-        $studioPart
-    ) | Where-Object { $_ -and $_ -ne '' }
+    ) | Where-Object { $_ }
 
-    return ($parts -join '')
+    $name = ($parts -join ' ')
+    if ($studioPart) {
+        $name += " $studioPart"
+    }
+
+    return $name
 }
 
 function Get-BaseNameForComic {
