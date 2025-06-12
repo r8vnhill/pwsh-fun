@@ -22,9 +22,11 @@ function Rename-StandardMedia {
         [string] $Title,
 
         [Parameter(ParameterSetName = 'Document')]
-        [Parameter(ParameterSetName = 'Comic')]
         [Alias('by')]
         [string[]] $Authors,
+
+        [Parameter(ParameterSetName = 'Comic')]
+        [string[]] $Creators,
 
         [Parameter(ParameterSetName = 'Document')]
         [Parameter(ParameterSetName = 'Anime')]
@@ -95,7 +97,9 @@ function Rename-StandardMedia {
                     -Volume $Volume `
                     -VolumeName $VolumeName `
                     -IssueNumber $IssueNumber `
-                    -IssueName $IssueName
+                    -IssueName $IssueName `
+                    -Creators $Creators `
+                    -Publisher $Publisher
             }
             default {
                 Get-BaseNameForDocument `
@@ -163,54 +167,73 @@ function Get-BaseNameForAnime {
 function Get-BaseNameForComic {
     [CmdletBinding()]
     param (
-        [string] $Title,
-        [string] $Year,
-        [string] $Arc,
-        [string] $Volume,
-        [string] $VolumeName,
-        [int]    $IssueNumber,
-        [string] $IssueName
+        [string]   $Title,
+        [string]   $Year,
+        [string]   $Arc,
+        [string[]] $Creators,
+        [string]   $Publisher,
+        [string]   $Volume,
+        [string]   $VolumeName,
+        [int]      $IssueNumber,
+        [string]   $IssueName
     )
 
-    # Base name components
-    $yearPart = if ($Year) { " ($Year)" } else { '' }
+    $yearPart = if ($Year) { "($Year)" } else { $null }
 
     $volumePart = if ($Volume) {
-        " Vol. $Volume"
-    } else { '' }
+        "Vol.$Volume"
+    } else { $null }
 
     $volumeNamePart = if ($VolumeName) {
         ": $VolumeName"
-    } else { '' }
+    } else { $null }
 
     $arcPart = if ($Arc) {
-        " [$Arc]"
-    } else { '' }
+        "[$Arc]"
+    } else { $null }
 
     $issuePart = if ($IssueNumber) {
         $num = '#{0:D3}' -f $IssueNumber
         if ($IssueName) {
-            " - $num - $IssueName"
+            "$num - $IssueName"
         } else {
-            " - $num"
+            $num
         }
     } elseif ($IssueName) {
-        " - $IssueName"
+        $IssueName
     } else {
-        ''
+        $null
     }
 
-    $parts = @(
+    $mainParts = @(
         $Title
         $yearPart
         $volumePart
         $volumeNamePart
         $arcPart
         $issuePart
-    ) | Where-Object { $_ -and $_ -ne '' }
+    ) | Where-Object { $_ }
 
-    return ($parts -join '')
+    $baseName = $mainParts -join ' '
+
+    # Optionally append creator/publisher info
+    $metaParts = @()
+
+    if ($Creators) {
+        $metaParts += "by " + ($Creators -join ', ')
+    }
+
+    if ($Publisher) {
+        $metaParts += $Publisher
+    }
+
+    if ($metaParts.Count -gt 0) {
+        $baseName += " (" + ($metaParts -join ', ') + ")"
+    }
+
+    return $baseName
 }
+
 
 function Get-BaseNameForDocument {
     param (
