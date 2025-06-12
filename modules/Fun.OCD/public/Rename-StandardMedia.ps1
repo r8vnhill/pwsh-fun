@@ -223,12 +223,13 @@ function Get-BaseNameForComic {
         $metaParts += "by " + ($Creators -join ', ')
     }
 
-    if ($Publisher) {
-        $metaParts += $Publisher
-    }
-
+    
     if ($metaParts.Count -gt 0) {
         $baseName += " (" + ($metaParts -join ', ') + ")"
+    }
+
+    if ($Publisher) {
+        $baseName += " [$Publisher]"
     }
 
     return $baseName
