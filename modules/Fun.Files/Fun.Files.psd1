@@ -3,7 +3,7 @@
     RootModule        = '.\modules\Fun.Files\Fun.Files.psm1'
 
     # Semantic version of the module
-    ModuleVersion = '0.2.0'
+    ModuleVersion = '0.3.0'
 
     # Unique module identifier
     GUID              = '06a00c57-8a2e-46ef-88f9-4cc0d9feba96'
@@ -19,13 +19,16 @@
         'Get-FileContents',
         'Copy-FileContents',
         'Invoke-FileTransform',
-        'Compress-FilteredFiles'
+        'Compress-FilteredFiles',
+        'New-AndEnterDirectory'
     )
 
     # No cmdlets, variables, or aliases are exported
     CmdletsToExport   = @()
     VariablesToExport = @()
-    AliasesToExport   = @()
+    AliasesToExport   = @(
+        'mdcd'  # Alias for New-AndEnterDirectory
+    )
 
     # Optional metadata, useful for future gallery publishing
     PrivateData       = @{

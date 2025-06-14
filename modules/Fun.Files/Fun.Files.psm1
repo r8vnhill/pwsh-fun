@@ -1,9 +1,10 @@
-. "$PSScriptRoot\public\Invoke-FileTransform.ps1"
-. "$PSScriptRoot\public\Show-FileContents.ps1"
-. "$PSScriptRoot\public\Get-FileContents.ps1"
-. "$PSScriptRoot\public\Copy-FileContents.ps1"
-. "$PSScriptRoot\public\Compress-FilteredFiles.ps1"
+# Import all public functions
+Get-ChildItem -Path "$PSScriptRoot\public" -Filter '*.ps1' | ForEach-Object {
+    . $_.FullName
+}
 
-Export-ModuleMember -Function `
-    Show-FileContents, Get-FileContents, Invoke-FileTransform, Copy-FileContents, `
-    Compress-FilteredFiles
+# Export all function names based on file names
+$publicFunctions = Get-ChildItem -Path "$PSScriptRoot\public" -Filter '*.ps1' |
+    ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
+
+Export-ModuleMember -Function $publicFunctions
