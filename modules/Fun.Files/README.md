@@ -34,6 +34,12 @@
       - [🎯 Include and Exclude Patterns](#-include-and-exclude-patterns)
       - [🔁 With Pipeline Input](#-with-pipeline-input-1)
       - [🔬 What-If Support](#-what-if-support)
+    - [`New-AndEnterDirectory`](#new-andenterdirectory)
+      - [Description](#description)
+      - [Parameters](#parameters)
+      - [Examples](#examples)
+        - [Example 1](#example-1)
+        - [Example 2](#example-2)
   - [📄 License](#-license)
   - [👨‍💻 Author](#-author)
   - [📬 Contributing](#-contributing)
@@ -294,7 +300,48 @@ Compress-FilteredFiles -Path './docs' -DestinationZip 'docs.zip' -WhatIf
 
 Simulates the operation without writing any files. Useful for dry runs or CI setups.
 
-> 💡 The command only emits output once when not streaming input, and does nothing if no files match.
+>[!note]
+> The command only emits output once when not streaming input, and does nothing if no files match.
+
+### `New-AndEnterDirectory`
+
+Creates a new directory and navigates into it.
+
+#### Description
+
+Creates a directory at the specified path and immediately changes the current location to that directory.  
+If the directory already exists, it is reused without error.  
+Supports `-WhatIf` and `-Confirm` for safe execution in scripts.
+
+This function is useful for quickly creating and entering project or workspace folders in a single step.
+
+#### Parameters
+
+- **`LiteralPath`**  
+  The literal path of the directory to create and enter.  
+  Must not be null or empty.
+
+#### Examples
+
+##### Example 1
+
+```powershell
+New-AndEnterDirectory -LiteralPath 'C:\Projects\MyApp'
+```
+
+Creates the `MyApp` directory inside `C:\Projects` and sets it as the current location.
+
+##### Example 2
+
+```powershell
+mdcd 'Reports\2025'
+```
+
+Alias for the same function.  
+Creates and enters the `2025` folder under `Reports`.
+
+>[!tip] Alias
+> `mdcd`
 
 ## 📄 License
 

@@ -5,18 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - TBD
+## [0.3.0] - 2025-06-13
 
-### Added
+### ✨ New Features
 
-### Changed
+- **`New-AndEnterDirectory` function**: Create and navigate into directories in one command.  
+  Alias `mdcd` added for convenience.
+- **Comic renaming support** in `Rename-StandardMedia`:  
+  Includes volume, issue number, and arc metadata for structured naming.
+- **Anime episode metadata**:  
+  `Rename-StandardMedia` now supports episode number and title formatting.
+- **Symlink utility**:  
+  Added `Move-AndLinkItem` to move files and replace them with symbolic links.
+- **Folder cleanup**:  
+  Introduced `Remove-DirectoryContents` to safely empty folders with optional Recycle Bin support.
 
-- Refactored `Test-Command`:
-  - Now returns a strongly typed `[CommandCheck]` object instead of a generic `PSCustomObject`.
-  - Added support for multiple command names (`[string[]]`) and pipeline input.
-  - Added `-OnlyExisting` switch to suppress non-existent results.
-  - Added `ToString()` override for readable output.
-  - Introduced alias `tc`.
+### 🎧 Audio Tools
+
+- Generalized `Convert-OpusToMp3` into `Convert-AudioToMp3`:
+  - Added support for `.m4a`, `.flac`, `.ogg`, `.wav`, and more.
+  - Optional `--Cleanup` flag to remove original files.
+  - Modularized conversion logic for extensibility.
+
+### 🔐 SSH Tools
+
+- **Install-SSHKey**: Automates remote SSH key setup using `scp` and appends to `authorized_keys`.
+
+### 🧹 Refactors & Internals
+
+- Refactored `Rename-StandardMedia`:
+  - Improved parameter order and internal logic.
+  - Unified conditional expressions and formatting helpers.
+- Modular test infrastructure improvements:
+  - Shared test initializers (`Initialize-TestSuite`)
+  - Improved assertions and test organization under `tests/` folder.
+- Updated module manifests and tags for better discoverability.
+
+### 🐛 Fixes & Maintenance
+
+- Several hotfixes to module loading, formatting, and resolution logic.
+- Improved validation for command naming conventions.
+- Cleaned up obsolete test files and standardized initialization.
 
 ## [0.2.0] - 2025-04-21
 
@@ -75,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Assertions.psm1` → `Assertions.ps1` to match file structure and module loading expectations.
 
-[unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/r8vnhill/pwsh-fun/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.3.0
 [0.2.0]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.2.0
 [0.1.0]: https://github.com/r8vnhill/pwsh-fun/releases/tag/v0.1.0
