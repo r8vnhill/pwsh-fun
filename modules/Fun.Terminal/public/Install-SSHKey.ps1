@@ -173,23 +173,3 @@ function Initialize-AuthorizedKeys {
         }
     }
 }
-
-function Test-SSHConnection {
-    [CmdletBinding(SupportsShouldProcess)]
-    param (
-        [Parameter(Mandatory)]
-        [ValidateNotNullOrEmpty()]
-        [string] $RemoteHost
-    )
-
-    if ($PSCmdlet.ShouldProcess($RemoteHost, "Test SSH connection")) {
-        Write-Verbose "Testing SSH connection to $RemoteHost"
-        $output = & ssh -vT $RemoteHost 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "SSH connection to $RemoteHost failed."
-            Write-Output $output
-        } else {
-            Write-Verbose "SSH connection to $RemoteHost succeeded."
-        }
-    }
-}

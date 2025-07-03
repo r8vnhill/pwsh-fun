@@ -1,10 +1,10 @@
-# Import all public functions
-Get-ChildItem -Path "$PSScriptRoot\public" -Filter '*.ps1' | ForEach-Object {
-    . $_.FullName
+# Discover and import all public .ps1 scripts and collect function names
+$publicFunctions = foreach (
+    $script in Get-ChildItem -Path "$PSScriptRoot\public" -Filter '*.ps1'
+) {
+    . $script.FullName
+    [System.IO.Path]::GetFileNameWithoutExtension($script.Name)
 }
 
-# Export all function names based on file names
-$publicFunctions = Get-ChildItem -Path "$PSScriptRoot\public" -Filter '*.ps1' |
-    ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
-
+# Export all discovered functions
 Export-ModuleMember -Function $publicFunctions

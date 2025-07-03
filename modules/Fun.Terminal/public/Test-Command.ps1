@@ -80,19 +80,19 @@ $missing.ToString()
 Intended for use with utilities such as Test-Command that inspect the command table in PowerShell.
 #>
 class CommandCheck {
-    [string]$Name
-    [bool]$Exists
+    [string] $Name
+    [bool] $Exists
 
     [AllowNull()]
-    [string]$Path
+    [string] $Path
 
     [AllowNull()]
-    [System.Nullable[System.Management.Automation.CommandTypes]]$CommandType
+    [System.Nullable[System.Management.Automation.CommandTypes]] $CommandType
 
     CommandCheck(
-        [string]$Name,
-        [bool]$Exists,
-        [string]$Path,
+        [string] $Name,
+        [bool] $Exists,
+        [string] $Path,
         [System.Nullable[System.Management.Automation.CommandTypes]]$CommandType
     ) {
         $this.Name = $Name
@@ -101,7 +101,7 @@ class CommandCheck {
         $this.CommandType = $CommandType
     }
 
-    CommandCheck([string]$Name) {
+    CommandCheck([string] $Name) {
         $this.Name = $Name
         $this.Exists = $false
         $this.Path = $null

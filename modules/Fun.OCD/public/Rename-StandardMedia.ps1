@@ -2,77 +2,76 @@ function Rename-StandardMedia {
     [Alias('doctor')]
     [CmdletBinding(DefaultParameterSetName = 'Document', SupportsShouldProcess)]
     param (
-        
         [Parameter(Mandatory, ParameterSetName = 'Document', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Parameter(Mandatory, ParameterSetName = 'Anime', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Parameter(Mandatory, ParameterSetName = 'Comic', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateScript({ Test-Path $_ })]
-        [string] $Item,
+        [string]    $Item,
         
         [Parameter(ParameterSetName = 'Anime')]
-        [switch] $Anime,
+        [switch]    $Anime,
 
         [Parameter(ParameterSetName = 'Comic')]
-        [switch] $Comic,
+        [switch]    $Comic,
 
         [Parameter(Mandatory, ParameterSetName = 'Document')]
         [Parameter(Mandatory, ParameterSetName = 'Anime')]
         [Parameter(Mandatory, ParameterSetName = 'Comic')]
         [Alias('t')]
-        [string] $Title,
+        [string]    $Title,
 
         [Parameter(ParameterSetName = 'Document')]
         [Alias('by')]
-        [string[]] $Authors,
+        [string[]]  $Authors,
 
         [Parameter(ParameterSetName = 'Comic')]
-        [string[]] $Creators,
+        [string[]]  $Creators,
 
         [Parameter(ParameterSetName = 'Document')]
         [Parameter(ParameterSetName = 'Anime')]
         [Parameter(ParameterSetName = 'Comic')]
         [Alias('y')]
-        [string] $Year,
+        [string]    $Year,
 
         [Parameter(ParameterSetName = 'Document')]
         [Parameter(ParameterSetName = 'Comic')]
         [Alias('ed')]
-        [string] $Publisher,
+        [string]    $Publisher,
 
         [Parameter(ParameterSetName = 'Document')]
         [Alias('e')]
-        [string] $Edition,
+        [string]    $Edition,
 
         [Parameter(ParameterSetName = 'Anime')]
         [Alias('s')]
-        [string[]] $Studios,
+        [string[]]  $Studios,
 
         [Parameter(ParameterSetName = 'Anime')]
-        [string] $Season,
+        [string]    $Season,
 
         [Parameter(ParameterSetName = 'Anime')]
         [Parameter(ParameterSetName = 'Comic')]
-        [string] $Arc,
+        [string]    $Arc,
 
         [Parameter(ParameterSetName = 'Comic')]
-        [string] $Volume,
+        [string]    $Volume,
 
         [Parameter(ParameterSetName = 'Comic')]
-        [string] $VolumeName,
+        [string]    $VolumeName,
 
         [Parameter(ParameterSetName = 'Comic')]
-        [int] $IssueNumber,
+        [string]    $IssueNumber,
 
         [Parameter(ParameterSetName = 'Comic')]
-        [string] $IssueName,
+        [string]    $IssueName,
 
         [Parameter(ParameterSetName = 'Anime')]
         [Alias('n')]
-        [int] $EpisodeNumber,
+        [int]       $EpisodeNumber,
 
         [Parameter(ParameterSetName = 'Anime')]
         [Alias('ep')]
-        [string] $EpisodeName
+        [string]    $EpisodeName
     )
 
     process {
@@ -123,13 +122,13 @@ function Rename-StandardMedia {
 function Get-BaseNameForAnime {
     [CmdletBinding()]
     param (
-        [string] $Title,
-        [string] $Year,
-        [string] $Season,
-        [string] $Arc,
-        [string[]] $Studios,
-        [int] $EpisodeNumber,
-        [string] $EpisodeName
+        [string]    $Title,
+        [string]    $Year,
+        [string]    $Season,
+        [string]    $Arc,
+        [string[]]  $Studios,
+        [int]       $EpisodeNumber,
+        [string]    $EpisodeName
     )
 
     $yearPart     = if ($Year) { "($Year)" } else { $null }
@@ -174,7 +173,7 @@ function Get-BaseNameForComic {
         [string]   $Publisher,
         [string]   $Volume,
         [string]   $VolumeName,
-        [int]      $IssueNumber,
+        [string]   $IssueNumber,
         [string]   $IssueName
     )
 
@@ -193,7 +192,12 @@ function Get-BaseNameForComic {
     } else { $null }
 
     $issuePart = if ($IssueNumber) {
-        $num = '#{0:D3}' -f $IssueNumber
+        $num = if ($IssueNumber -match '^\d+$') {
+            '#{0:D3}' -f [int]$IssueNumber
+        } else {
+            "#$IssueNumber"
+        }
+
         if ($IssueName) {
             "$num - $IssueName"
         } else {
@@ -216,14 +220,12 @@ function Get-BaseNameForComic {
 
     $baseName = $mainParts -join ' '
 
-    # Optionally append creator/publisher info
     $metaParts = @()
 
     if ($Creators) {
         $metaParts += "by " + ($Creators -join ', ')
     }
 
-    
     if ($metaParts.Count -gt 0) {
         $baseName += " (" + ($metaParts -join ', ') + ")"
     }
