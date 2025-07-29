@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changes
+
+- **`Get-FilteredFiles`**:
+  - Improved performance by avoiding traversal into excluded directories.
+  - Enhanced documentation with usage examples and parameter descriptions.
+  - All commands depending on `Invoke-FileTransform` now use the improved `Get-FilteredFiles` for better filtering.
+
 ## [0.3.0] - 2025-06-13
 
 ### ✨ New Features

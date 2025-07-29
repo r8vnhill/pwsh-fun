@@ -90,58 +90,95 @@ function Invoke-FileTransform {
             Get-FilteredFiles -RootPath $root `
                 -IncludeRegex $IncludeRegex `
                 -ExcludeRegex $ExcludeRegex |
-            ForEach-Object {
-                $header = "File: $($_.FullName)"
-                & $FileProcessor $_ $header
-            }
+                ForEach-Object {
+                    $header = "File: $($_.FullName)"
+                    & $FileProcessor $_ $header
+                }
         }
     }
 }
 
 <#
 .SYNOPSIS
-Recursively returns files under a root path that match inclusion and exclusion regex patterns.
+    Recursively retrieves files under a root path, filtering them using include and exclude regular expressions.
 
 .DESCRIPTION
-`Get-FilteredFiles` enumerates all files under the specified `$RootPath` and returns only those whose relative paths match at least one of the provided `$IncludeRegex` patterns and none of the `$ExcludeRegex` patterns.
+    This function traverses a directory tree starting from the specified RootPath.
+    It filters files based on inclusion and exclusion regex patterns applied to their relative paths.
+    The traversal avoids descending into directories that are excluded by the ExcludeRegex patterns, improving performance on large file trees.
 
-It is designed to support advanced file filtering using regular expressions and is typically used as a helper for file-processing commands.
-
-.PARAMETER RootPath
-The root directory to search for files. The path must exist and be a directory.
-
-.PARAMETER IncludeRegex
-An array of regular expressions to determine which files should be included.
-Relative paths are matched against these expressions.
-
-.PARAMETER ExcludeRegex
-An array of regular expressions to exclude files.
-Relative paths are matched against these expressions. Exclusions take precedence over inclusions.
+.INPUTS
+    [string] Accepts the RootPath from the pipeline.
 
 .OUTPUTS
-A list of [System.IO.FileInfo] objects for all matching files.
+    [System.IO.FileInfo] Objects representing the files that match the filters.
 
 .EXAMPLE
-PS> Get-FilteredFiles -RootPath './src' -IncludeRegex '.*\.ps1$' -ExcludeRegex 'tests/'
+    Get-FilteredFiles -RootPath "C:\Projects" -IncludeRegex '^src/.*\.cs$' -ExcludeRegex '^bin/'
 
-Returns all `.ps1` files in `./src`, excluding those under a `tests/` subdirectory.
-
-.NOTES
-- Paths are normalized by replacing backslashes (`\`) with forward slashes (`/`) before matching.
-- Intended for internal use in file transformation or inspection tools.
+    Returns all `.cs` files under the `src` directory, skipping any subdirectories that match `bin`.
 #>
 function Get-FilteredFiles {
+    [CmdletBinding()]
     param (
-        [string]$RootPath,
-        [string[]]$IncludeRegex,
-        [string[]]$ExcludeRegex
+        # The root directory path from which to begin recursive traversal.
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string] $RootPath,
+        # An array of regular expressions used to include matching file paths.
+        # Defaults to '.*' (include all files).
+        [string[]] $IncludeRegex = @('.*'),
+        # An array of regular expressions used to exclude matching file or folder paths.
+        # Directories that match any of these patterns will not be traversed.
+        [string[]] $ExcludeRegex = @()
     )
 
-    Get-ChildItem -Path $RootPath -File -Recurse | Where-Object {
-        $relativePath = $_.FullName.Substring($RootPath.Length + 1).Replace('\', '/')
-        ShouldIncludeFile -RelativePath $relativePath `
-            -IncludeRegex $IncludeRegex `
-            -ExcludeRegex $ExcludeRegex
+    begin {
+        # Helper: Recursively traverse folders and yield matching files.
+        function Get-FolderContent {
+            param (
+                [string] $CurrentPath
+            )
+
+            # Get all entries in the current directory
+            $entries = Get-ChildItem `
+                -Path $CurrentPath `
+                -Force `
+                -ErrorAction SilentlyContinue
+
+            foreach ($entry in $entries) {
+                if ($entry.PSIsContainer) {
+                    # Compute the relative path of the directory
+                    $relativeDir = $entry.FullName.Substring(
+                        $RootPath.Length + 1
+                    ).Replace('\', '/')
+
+                    $isExcluded = $ExcludeRegex | Where-Object { $relativeDir -match $_ }
+
+                    # Recurse only if not excluded
+                    if (-not $isExcluded) {
+                        Get-FolderContent -CurrentPath $entry.FullName
+                    }
+                } elseif ($entry -is [System.IO.FileInfo]) {
+                    # Compute the relative path of the file
+                    $relativePath = $entry.FullName.Substring(
+                        $RootPath.Length + 1
+                    ).Replace('\', '/')
+
+                    # Apply inclusion/exclusion rules using an external predicate
+                    if (ShouldIncludeFile `
+                            -RelativePath $relativePath `
+                            -IncludeRegex $IncludeRegex `
+                            -ExcludeRegex $ExcludeRegex) {
+                        $entry
+                    }
+                }
+            }
+        }
+    }
+
+    process {
+        # Start traversal at the given root path
+        Get-FolderContent -CurrentPath $RootPath
     }
 }
 
