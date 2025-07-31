@@ -35,49 +35,16 @@ $script:PlatformSepString = [string][System.IO.Path]::DirectorySeparatorChar
 Describe 'Get-PathSeparator' -Tag 'unit', 'cross-platform' {
 
     BeforeAll {
-        Set-StrictMode -Version Latest
+        . "$PSScriptRoot\..\_internal__Setup.ps1"
 
-        <#
-         .SYNOPSIS
-            Resolves a full path from a start directory and a sequence of relative parts.
-         .DESCRIPTION
-            Keeps path logic DRY and cross-platform. Used for dot-sourcing the internal
-            function.
-        #>
-        function Resolve-RelativePath([string] $start, [string[]] $parts) {
-            $p = $start
-            foreach ($part in $parts) { $p = Join-Path -Path $p -ChildPath $part }
-            [System.IO.Path]::GetFullPath($p)
-        }
+        . (New-InternalScriptLoader -Parts @(
+                'Get-FilteredFiles',
+                'Get-PathSeparator.ps1'))
+        Get-Command Get-PathSeparator -CommandType Function -ErrorAction Stop | Out-Null
 
-        # Dot-source the internal function by design.
-        # Rationale: The function is not exported; tests should target the internal
-        # implementation directly.
-        $target = Resolve-RelativePath -start $PSScriptRoot -parts @(
-            '..', '..', '..', '..',
-            'modules', 'Fun.Files', 'internal', 'Get-FilteredFiles',
-            'Get-PathSeparator.ps1'
-        )
-
-        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
-            throw [System.IO.FileNotFoundException]::new(
-                'Cannot find script to dot-source.',
-                $target
-            )
-        }
-
-        Write-Verbose "Dot-sourcing internal file: $target"
-        $null = . $target
-
-        # Contract sanity: the function must now be available in scope
-        Get-Command -Name Get-PathSeparator -CommandType Function -ErrorAction Stop | `
-                Out-Null
-
-        $script:PlatformSepString = [string][System.IO.Path]::DirectorySeparatorChar
+        $script:PlatformSepString = [string][IO.Path]::DirectorySeparatorChar
         $script:WindowsSep = '\'
         $script:UnixSep = '/'
-
-        # Define table-driven cases to keep Style tests DRY and consistent.
         $script:StyleCases = @(
             @{ Style = 'Platform'; Expect = $script:PlatformSepString },
             @{ Style = 'Windows' ; Expect = $script:WindowsSep },
