@@ -42,14 +42,14 @@
 
             # Optional metadata if published online
             LicenseUri   = 'https://opensource.org/license/bsd-2-clause'
-            ProjectUri   = 'https://github.com/r8vnhill/pwsh-fun'
+            ProjectUri   = 'https://gitlab\.com/r8vnhill/pwsh-fun'
             # IconUri      = '...'
             ReleaseNotes = 'Initial version with basic loader functions.'
         }
     }
 
     # Optional help info
-    HelpInfoURI = 'https://github.com/r8vnhill/pwsh-fun/blob/main/modules/Fun.Loader/README.md'
+    HelpInfoURI = 'https://gitlab\.com/r8vnhill/pwsh-fun/blob/main/modules/Fun.Loader/README.md'
 
     # Optional command prefix to avoid naming collisions
     # DefaultCommandPrefix = 'Fun'

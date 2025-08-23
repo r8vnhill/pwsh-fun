@@ -35,7 +35,7 @@
         PSData = @{
             Tags         = @('files', 'content', 'clipboard', 'transform', 'utilities')
             LicenseUri   = 'https://opensource.org/license/bsd-2-clause'
-            ProjectUri   = 'https://github.com/r8vnhill/pwsh-fun'
+            ProjectUri   = 'https://gitlab\.com/r8vnhill/pwsh-fun'
             IconUri      = ''
             ReleaseNotes = 'Initial development version with content viewing, transformation, and clipboard integration.'
         }

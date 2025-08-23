@@ -351,7 +351,7 @@ BSD 2-Clause License
 ## 👨‍💻 Author
 
 **Ignacio Slater-Muñoz**  
-[github.com/r8vnhill](https://github.com/r8vnhill)
+[github.com/r8vnhill](https://gitlab\.com/r8vnhill)
 
 ## 📬 Contributing
 

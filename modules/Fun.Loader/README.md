@@ -1,6 +1,6 @@
 # 🧩 Fun.Loader
 
-**Fun.Loader** is a utility module in the [`pwsh-fun`](https://github.com/r8vnhill/pwsh-fun) project designed to dynamically load and unload all modular components in the repository.
+**Fun.Loader** is a utility module in the [`pwsh-fun`](https://gitlab\.com/r8vnhill/pwsh-fun) project designed to dynamically load and unload all modular components in the repository.
 
 This module includes two functions:
 
@@ -68,5 +68,5 @@ Fun.Loader/
 
 ## 🔗 Related
 
-- [Main Repository](https://github.com/r8vnhill/pwsh-fun)
+- [Main Repository](https://gitlab\.com/r8vnhill/pwsh-fun)
 - [PowerShell Documentation](https://docs.microsoft.com/powershell/)

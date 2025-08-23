@@ -68,7 +68,7 @@ Compress-FilteredFiles `
 Clone the repository and import modules directly:
 
 ```powershell
-git clone https://github.com/r8vnhill/pwsh-fun
+git clone https://gitlab\.com/r8vnhill/pwsh-fun
 cd pwsh-fun
 Import-Module ./modules/Fun.Loader/Fun.Loader.psd1
 Install-FunModules
@@ -124,6 +124,6 @@ Simple, permissive, and open.
 ## 🙋 Author
 
 **Ignacio Slater-Muñoz**  
-[github.com/r8vnhill](https://github.com/r8vnhill)
+[github.com/r8vnhill](https://gitlab\.com/r8vnhill)
 
 Have *fun* scripting 🐚
