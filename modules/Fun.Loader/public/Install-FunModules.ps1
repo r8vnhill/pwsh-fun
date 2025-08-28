@@ -1,70 +1,159 @@
-# modules\Fun.Loader\public\Install-FunModules.ps1
+#Requires -Version 7.0
+Set-StrictMode -Version Latest
 
-<#
-.SYNOPSIS
-Imports all modules found inside the `modules/` folder of the pwsh-fun project.
+#region Types
+enum ModuleKind { Manifest; Script }
 
-.DESCRIPTION
-This function searches for subdirectories within the `modules/` folder and attempts to import a `.psm1` file whose name matches the directory name.
-It is intended to dynamically load all modular PowerShell components of the pwsh-fun project during development or interactive use.
+class FunModuleRef {
+    [string]     $Name
+    [string]     $Path
+    [ModuleKind] $Kind
 
-It uses `Import-Module -Scope Global` so that the exported functions become available in the current session.
-Only modules with valid `.psm1` files are processed.
-Missing module files are skipped with a warning.
+    FunModuleRef([string] $name, [string] $path, [ModuleKind] $kind) {
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            throw [ArgumentException]::new('Name is required')
+        }
+        if ([string]::IsNullOrWhiteSpace($path)) {
+            throw [ArgumentException]::new('Path is required')
+        }
+        $this.Name = $name
+        $this.Path = $path
+        $this.Kind = $kind
+    }
 
-.PARAMETER BasePath
-Specifies the root path of the repository.
-By default, it is calculated two levels above the current script location.
-This should be the root of the `pwsh-fun` repository, containing a `modules/` folder.
+    [string] ToString() {
+        return '{0} ({1}) -> {2}' -f $this.Name, $this.Kind, $this.Path
+    }
 
-.EXAMPLE
-PS> Install-FunModules
+    hidden static [bool] MatchesAny([string] $value, [string[]] $patterns) {
+        foreach ($p in $patterns) { 
+            if ($value -like $p) { return $true } 
+        }
+        return $false
+    }
 
-Searches for modules in the default location and imports all found `.psm1` files.
+    static [FunModuleRef] TryFromDir([System.IO.DirectoryInfo] $dir) {
+        if (-not $dir) { return $null }
+        $n = $dir.Name
+        $psd = Join-Path $dir.FullName "$n.psd1"
+        $psm = Join-Path $dir.FullName "$n.psm1"
+        if (Test-Path -LiteralPath $psd -PathType Leaf) {
+            return [FunModuleRef]::new($n, $psd, [ModuleKind]::Manifest) 
+        }
+        if (Test-Path -LiteralPath $psm -PathType Leaf) {
+            return [FunModuleRef]::new($n, $psm, [ModuleKind]::Script)
+        }
+        return $null
+    }
+}
 
-.EXAMPLE
-PS> Install-FunModules -BasePath "C:\Repos\pwsh-fun"
+class FunModuleImportResult {
+    [string]     $Name
+    [Version]    $Version
+    [ModuleKind] $Kind
+    [string]     $Path
+    [string]     $Status
+    [string]     $Message
 
-Imports modules from the specified root path.
+    FunModuleImportResult(
+        [string]$name, 
+        [Version]$ver, 
+        [ModuleKind]$kind, 
+        [string]$path, 
+        [string]$status, 
+        [string]$msg) {
+        $this.Name = $name
+        $this.Version = $ver
+        $this.Kind = $kind
+        $this.Path = $path
+        $this.Status = $status
+        $this.Message = $msg
+    }
 
-.EXAMPLE
-PS> Install-FunModules -Verbose
+    [string] ToString() { 
+        return '{0} {1} [{2}] - {3}' `
+            -f $this.Name, ($this.Version ?? ''), $this.Status, $this.Path 
+    }
+}
+#endregion Types
 
-Displays additional progress information during module discovery and import.
-
-.NOTES
-This function uses `ShouldProcess`, so it supports `-WhatIf` and `-Confirm`.
-#>
-function Install-FunModules {
-    [CmdletBinding(SupportsShouldProcess)]
+#region Discovery
+function script:Get-FunModuleFiles {
+    [CmdletBinding()]
+    [OutputType([FunModuleRef])]
     param(
-        [string]$BasePath = (
-            Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')
-        ).Path
+        [string]   $BasePath,
+        [string[]] $Exclude = @('*Fun.OCD*', '.git', '_*')
     )
 
-    $modulesPath = Join-Path $BasePath 'modules'
+    # Compute default at runtime to avoid Resolve-Path throwing at parse time
+    if (-not $PSBoundParameters.ContainsKey('BasePath')) {
+        $BasePath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
+    }
 
-    Write-Verbose "📦 Installing modules from: $modulesPath"
-
-    if (-not (Test-Path $modulesPath)) {
-        Write-Warning "Modules folder not found: $modulesPath"
+    if (-not (
+            Test-Path -LiteralPath (Join-Path $BasePath 'modules') -PathType Container)) {
+        Write-Verbose "Modules folder not found under: $BasePath"
         return
     }
 
-    Get-ChildItem -Path $modulesPath -Exclude '*Fun.OCD*' -Directory | 
+    $modulesPath = Join-Path $BasePath 'modules'
+    Get-ChildItem -LiteralPath $modulesPath -Directory -ErrorAction Stop |
+        Where-Object { -not [FunModuleRef]::MatchesAny($_.Name, $Exclude) } |
         ForEach-Object {
-            $moduleName = $_.Name
-            $psm1Path = Join-Path $_.FullName "$moduleName.psm1"
-
-            if (-not (Test-Path $psm1Path)) {
-                Write-Warning "⚠️  Skipped: $moduleName.psm1 not found in $($_.FullName)"
-                return
-            }
-
-            if ($PSCmdlet.ShouldProcess($moduleName, 'Import module')) {
-                Import-Module $psm1Path -Force -Scope Global
-                Write-Host "✅ Imported module: $moduleName" -ForegroundColor Green
-            }
+            $ref = [FunModuleRef]::TryFromDir($_)
+            if ($ref) { $ref } 
+            else { Write-Verbose "Skipping '$($_.Name)' (no matching .psd1/.psm1)." }
         }
 }
+#endregion Discovery
+
+#region Install
+function Install-FunModules {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Low')]
+    param(
+        # You can either pipe in refs or let the function discover them:
+        [Parameter(ValueFromPipeline)]
+        [FunModuleRef[]] $Module,
+
+        [string]   $BasePath,
+        [string[]] $Exclude = @('*Fun.OCD*'),
+        [ValidateSet('Global', 'Local')]
+        [string]   $Scope = 'Global'
+    )
+    begin {
+        $refs = New-Object System.Collections.Generic.List[FunModuleRef]
+        # If BasePath was supplied (or default), we’ll add discovery results in end{}
+        $hadInput = $false
+    }
+    process {
+        if ($Module) {
+            $hadInput = $true
+            foreach ($m in $Module) { [void]$refs.Add($m) }
+        }
+    }
+    end {
+        if (-not $hadInput) {
+            foreach ($m in (Get-FunModuleFiles -BasePath:$BasePath -Exclude:$Exclude)) {
+                [void]$refs.Add($m)
+            }
+        }
+
+        foreach ($m in $refs) {
+            $target = "$($m.Name) ($($m.Kind))"
+            if (-not $PSCmdlet.ShouldProcess($target, 'Import-Module')) { continue }
+            try {
+                Write-Verbose "Importing $($m.Name) from $($m.Path) [Scope=$Scope]"
+                $mod = Import-Module -LiteralPath $m.Path -Force -Scope $Scope -PassThru `
+                    -ErrorAction Stop
+                [FunModuleImportResult]::new(
+                    $m.Name, $mod.Version, $m.Kind, $m.Path, 'Imported', 'OK')
+            } catch {
+                Write-Warning "Failed to import '$($m.Name)': $($_.Exception.Message)"
+                [FunModuleImportResult]::new(
+                    $m.Name, $null, $m.Kind, $m.Path, 'Failed', $_.Exception.Message)
+            }
+        }
+    }
+}
+#endregion Install

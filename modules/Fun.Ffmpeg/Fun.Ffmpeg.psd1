@@ -3,7 +3,7 @@
     RootModule        = '.\Fun.Ffmpeg.psm1'
 
     # Semantic version of the module
-    ModuleVersion = '0.3.0'
+    ModuleVersion     = '0.3.0'
 
     # Unique module identifier
     GUID              = '2bb223bb-b9c8-495f-bd7a-028b1b4c9177'
