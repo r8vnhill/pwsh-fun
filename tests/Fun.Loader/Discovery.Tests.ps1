@@ -28,11 +28,11 @@ BeforeAll {
     # ⚠️ Resolve types at runtime (post dot-sourcing).
     # Using bare [FunModuleRef] inside tests would be parsed too early and fail.
     $script:FunModuleRefType = ('FunModuleRef' -as [type])
-    $script:ModuleKindType   = ('ModuleKind'   -as [type])
+    $script:ModuleKindType = ('ModuleKind' -as [type])
 
     # Sanity: make sure the types actually loaded
-    if (-not $FunModuleRefType)   { throw "FunModuleRef type not loaded." }
-    if (-not $ModuleKindType)     { throw "ModuleKind enum not loaded."   }
+    if (-not $FunModuleRefType) { throw 'FunModuleRef type not loaded.' }
+    if (-not $ModuleKindType) { throw 'ModuleKind enum not loaded.' }
 }
 
 AfterAll {
@@ -56,10 +56,10 @@ Describe 'Get-FunModuleFiles' {
 
         # Access the enum via its resolved type to avoid parse-time lookup.
         $Manifest = [enum]::Parse($ModuleKindType, 'Manifest')
-        $Script   = [enum]::Parse($ModuleKindType, 'Script')
+        $Script = [enum]::Parse($ModuleKindType, 'Script')
 
         ($refs | Where-Object Name -EQ 'Alpha').Kind | Should -Be $Manifest
-        ($refs | Where-Object Name -EQ 'Beta').Kind  | Should -Be $Script
+        ($refs | Where-Object Name -EQ 'Beta').Kind | Should -Be $Script
     }
 
     It 'skips folders with no matching files and respects Exclude' {
@@ -77,12 +77,12 @@ Describe 'Get-FunModuleFiles' {
 
     It 'TryFromDir chooses correct kind' {
         $alphaDir = Get-Item -LiteralPath $SB.Alpha
-        $betaDir  = Get-Item -LiteralPath $SB.Beta
+        $betaDir = Get-Item -LiteralPath $SB.Beta
 
         $Manifest = [enum]::Parse($ModuleKindType, 'Manifest')
-        $Script   = [enum]::Parse($ModuleKindType, 'Script')
+        $Script = [enum]::Parse($ModuleKindType, 'Script')
 
         ([FunModuleRef]::TryFromDir($alphaDir)).Kind | Should -Be $Manifest
-        ([FunModuleRef]::TryFromDir($betaDir)).Kind  | Should -Be $Script
+        ([FunModuleRef]::TryFromDir($betaDir)).Kind | Should -Be $Script
     }
 }
