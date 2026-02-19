@@ -1,19 +1,6 @@
-# Locate “public” folder relative to this module
-$moduleFolder = $PSScriptRoot
-$publicFolder = Join-Path $moduleFolder 'public'
+#Requires -Version 7.0
+Set-StrictMode -Version Latest
+Write-Verbose "Initializing Fun.OCD from: $PSScriptRoot"
 
-if (-not (Test-Path $publicFolder)) {
-    Write-Verbose "No 'public' folder at $publicFolder; skipping."
-    return
-}
-
-Get-ChildItem -Path $publicFolder -Filter '*.ps1' -File |
-    ForEach-Object {
-        try {
-            Write-Verbose "Dot-sourcing $($_.FullName)"
-            . $_.FullName
-        }
-        catch {
-            Write-Warning "Fun.OCD: failed to load '$($_.FullName)': $($_.Exception.Message)"
-        }
-    }
+# Dot-source the loader *script* with a parameter -> runs in module scope
+. "$PSScriptRoot\..\_Common\Import-ModuleScripts.ps1" -Root $PSScriptRoot

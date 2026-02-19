@@ -22,18 +22,6 @@ function Remove-DirectoryContents {
     }
 }
 
-function Get-DirectoryItems {
-    param (
-        [string] $Path
-    )
-    try {
-        return Get-ChildItem -Path $Path -Force -ErrorAction Stop
-    } catch {
-        Write-Error "❌ Failed to list contents of '$Path': $_"
-        return $null
-    }
-}
-
 function Remove-ItemSafely {
     param (
         [Parameter(Mandatory)]

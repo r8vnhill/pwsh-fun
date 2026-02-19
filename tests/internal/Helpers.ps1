@@ -43,9 +43,9 @@ function Get-InvokedFilePathsForTest {
         -IncludeRegex $IncludeRegex `
         -ExcludeRegex $ExcludeRegex `
         -FileProcessor {
-            param ($file, $header)
-            $acc.Add($file.FullName)
-        }
+        param ($file, $header)
+        $acc.Add($file.FullName)
+    }
 
     return $acc.ToArray()
 }
@@ -87,7 +87,7 @@ function New-TestDirectoryWithFiles {
     )
 
     $base = Join-Path $env:TEMP $BaseName
-    $sub  = Join-Path $base 'sub'
+    $sub = Join-Path $base 'sub'
     Remove-Item $base -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -Path $sub -ItemType Directory -Force | Out-Null
 
@@ -148,4 +148,141 @@ function Remove-TestEnvironment {
             Remove-Module -Name $modName -ErrorAction SilentlyContinue
         }
     }
+}
+
+<#
+.SYNOPSIS
+    Builds a full filesystem path from a start directory and one or more relative parts.
+
+.DESCRIPTION
+    Combines a base path (-Start) with a sequence of path segments (-Parts), normalizes
+    the result to a full absolute path, and optionally verifies that the resolved path
+    exists.
+
+    - Skips empty/null parts.
+    - Rejects rooted/absolute parts unless -AllowAbsoluteParts is specified.
+    - Uses fast .NET APIs for combination/normalization.
+    - When validating existence, uses Test-Path -LiteralPath (no wildcard expansion).
+
+.PARAMETER Start
+    Base directory (can be relative or absolute). Will be normalized to an absolute path
+    before combining parts.
+
+.PARAMETER Parts
+    One or more relative path segments to append. Empty/null items are ignored.
+    By default, absolute segments are rejected to avoid accidentally resetting the base.
+
+.PARAMETER AllowAbsoluteParts
+    Allow absolute segments in -Parts. If present, the first absolute segment resets the
+    base for subsequent segments (like Join-Path behavior).
+
+.PARAMETER RequireExists
+    If supplied, throws when the final path does not exist.
+
+.PARAMETER PathType
+    When -RequireExists is used, the expected type of the final path. 'Any' (default),
+    'Leaf' (file) or 'Container' (directory).
+
+.OUTPUTS
+    [string]
+
+.EXAMPLE
+    Resolve-RelativePath -Start $PSScriptRoot -Parts @('..','..','modules')
+    # -> Full absolute path to the "modules" folder, two levels up.
+
+.EXAMPLE
+    Resolve-RelativePath -Start '.' -Parts 'data','input.json' -RequireExists `
+        -PathType Leaf
+    # -> Verifies the path exists and is a file.
+#>
+function Resolve-RelativePath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Start,
+
+        [Parameter()]
+        [string[]] $Parts = @(),
+
+        [Parameter()]
+        [switch] $AllowAbsoluteParts,
+
+        [Parameter()]
+        [switch] $RequireExists,
+
+        [Parameter()]
+        [ValidateSet('Any', 'Leaf', 'Container')]
+        [string] $PathType = 'Any'
+    )
+
+    begin {
+        Set-StrictMode -Version Latest
+        function Test-FinalPath {
+            param([string] $p, [string] $type)
+            $typeSwitch = switch ($type) {
+                'Leaf' { @{ PathType = 'Leaf' } }
+                'Container' { @{ PathType = 'Container' } }
+                default { @{} }
+            }
+            Test-Path -LiteralPath $p @typeSwitch
+        }
+    }
+
+    process {
+        # Normalize base; .NET GetFullPath uses current directory if Start is relative.
+        $base = [System.IO.Path]::GetFullPath($Start)
+
+        # Combine parts in order; reject rooted segments unless allowed.
+        $current = $base
+        foreach ($part in $Parts) {
+            if ([string]::IsNullOrWhiteSpace($part)) { continue }
+
+            if (-not $AllowAbsoluteParts -and [System.IO.Path]::IsPathRooted($part)) {
+                throw @(
+                    "Resolve-RelativePath: Part '$part' is an absolute path.",
+                    "Pass -AllowAbsoluteParts to permit resetting the base."
+                ) -join "`n"
+            }
+
+            $current = [System.IO.Path]::Combine($current, $part)
+        }
+
+        # Normalize again to collapse "..", ".", etc.
+        $final = [System.IO.Path]::GetFullPath($current)
+
+        if ($RequireExists) {
+            if (-not (Test-FinalPath -p $final -type $PathType)) {
+                $msg = if ($PathType -eq 'Any') {
+                    "Path does not exist: '$final'."
+                } else {
+                    "Expected a $PathType at: '$final', but it was not found."
+                }
+                throw $msg
+            }
+        }
+
+        return $final
+    }
+}
+
+<#
+.SYNOPSIS
+    Resolves the absolute path to the repository-level 'modules' folder.
+
+.DESCRIPTION
+    Convenience wrapper that resolves "..\..\modules" relative to the current module's
+    root ($PSScriptRoot). Throws if the folder does not exist.
+
+.OUTPUTS
+    [string]
+#>
+function Resolve-ModulesPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+
+    Resolve-RelativePath -Start $PSScriptRoot -Parts @('..', '..', 'modules') `
+        -RequireExists -PathType Container
 }

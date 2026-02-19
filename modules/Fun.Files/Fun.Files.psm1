@@ -1,10 +1,6 @@
-# Discover and import all public .ps1 scripts and collect function names
-$publicFunctions = foreach (
-    $script in Get-ChildItem -Path "$PSScriptRoot\public" -Filter '*.ps1'
-) {
-    . $script.FullName
-    [System.IO.Path]::GetFileNameWithoutExtension($script.Name)
-}
+#Requires -Version 7.0
+Set-StrictMode -Version Latest
+Write-Verbose "Initializing Fun.Files from: $PSScriptRoot"
 
-# Export all discovered functions
-Export-ModuleMember -Function $publicFunctions
+# Dot-source the loader *script* with a parameter -> runs in module scope
+. "$PSScriptRoot\..\_Common\Import-ModuleScripts.ps1" -Root $PSScriptRoot

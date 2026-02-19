@@ -11,6 +11,5 @@ Import-Module -Name "$PSScriptRoot\..\internal\Test.Init\Test.Init.psd1" -ErrorA
 # - Verify that the specified commands are available after import
 # - Force re-import if the module is already loaded (to ensure a clean state)
 Initialize-TestSuite -Module 'Fun.Terminal' -RequiredCommands @(
-    'Test-Command', # Check if a command exists and its type
-    'Get-Right'     # Get the right value from a monadic context
+    'Test-Command'  # Check if a command exists and its type
 ) -ForceImport

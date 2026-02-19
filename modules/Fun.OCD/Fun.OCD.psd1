@@ -36,7 +36,7 @@
                 'recyclebin'
             )
             LicenseUri = 'https://opensource.org/license/bsd-2-clause'
-            ProjectUri = 'https://github.com/r8vnhill/pwsh-fun'
+            ProjectUri = 'https://gitlab\.com/r8vnhill/pwsh-fun'
         }
     }
 }

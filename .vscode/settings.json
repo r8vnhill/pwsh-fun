@@ -5,12 +5,19 @@
         "titleBar.activeForeground": "#FFFBFE"
     },
     "cSpell.words": [
+        "bootstrapper",
         "cmff",
         "doesnotexist",
+        "hashtables",
         "LASTEXITCODE",
         "mdcd",
         "Muñoz",
+        "pathing",
+        "Predeclare",
         "pwsh",
-        "Rasengan"
-    ]
+        "Rasengan",
+        "subfolders"
+    ],
+    "powershell.scriptAnalysis.settingsPath": "../PSScriptAnalyzerSettings.psd1",
+    "powershell.scriptAnalysis.enable": true
 }

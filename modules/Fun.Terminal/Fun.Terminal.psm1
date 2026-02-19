@@ -1,7 +1,6 @@
-# modules\Fun.Terminal\Fun.Terminal.psm1
-Get-ChildItem -Path "$PSScriptRoot\public" -Recurse -File | 
-    Where-Object { $_.Name -like '*.ps1' } | 
-    ForEach-Object { . "$PSScriptRoot\public\$($_.Name)" }
+#Requires -Version 7.0
+Set-StrictMode -Version Latest
+Write-Verbose "Initializing Fun.Terminal from: $PSScriptRoot"
 
-Export-ModuleMember -Function Test-Command
-Export-ModuleMember -Function Get-Right
+# Dot-source the loader *script* with a parameter -> runs in module scope
+. "$PSScriptRoot\..\_Common\Import-ModuleScripts.ps1" -Root $PSScriptRoot
