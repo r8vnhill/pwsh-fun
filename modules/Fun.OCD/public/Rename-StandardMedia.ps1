@@ -1,11 +1,28 @@
+#Requires -Version 7.4
+
+Set-StrictMode -Version 3.0
+
+$privateFolder = Join-Path $PSScriptRoot '..\private'
+. (Join-Path $privateFolder 'Rename-StandardMedia.NameParts.ps1')
+. (Join-Path $privateFolder 'Rename-StandardMedia.PathAndFormat.ps1')
+. (Join-Path $privateFolder 'Rename-StandardMedia.NameBuilders.ps1')
+
 function Rename-StandardMedia {
     [Alias('doctor')]
-    [CmdletBinding(DefaultParameterSetName = 'Document', SupportsShouldProcess)]
+    [CmdletBinding(
+        DefaultParameterSetName = 'Document', 
+        SupportsShouldProcess, 
+        PositionalBinding = $false)]
+    [OutputType([System.IO.FileInfo])]
     param (
         [Parameter(Mandatory, ParameterSetName = 'Document', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Parameter(Mandatory, ParameterSetName = 'Anime', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Parameter(Mandatory, ParameterSetName = 'Comic', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [ValidateScript({ Test-Path $_ })]
+        [Parameter(Mandatory, ParameterSetName = 'Movie', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Mandatory, ParameterSetName = 'Series', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Mandatory, ParameterSetName = 'Game', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [ValidateScript({ Test-StandardMediaPath -Path $_ })]
+        [ValidateNotNullOrEmpty()]
         [string]    $Item,
         
         [Parameter(ParameterSetName = 'Anime')]
@@ -14,10 +31,23 @@ function Rename-StandardMedia {
         [Parameter(ParameterSetName = 'Comic')]
         [switch]    $Comic,
 
+        [Parameter(ParameterSetName = 'Movie')]
+        [switch]    $Movie,
+
+        [Parameter(ParameterSetName = 'Series')]
+        [switch]    $Series,
+
+        [Parameter(ParameterSetName = 'Game')]
+        [switch]    $Game,
+
         [Parameter(Mandatory, ParameterSetName = 'Document')]
         [Parameter(Mandatory, ParameterSetName = 'Anime')]
         [Parameter(Mandatory, ParameterSetName = 'Comic')]
+        [Parameter(Mandatory, ParameterSetName = 'Movie')]
+        [Parameter(Mandatory, ParameterSetName = 'Series')]
+        [Parameter(Mandatory, ParameterSetName = 'Game')]
         [Alias('t')]
+        [ValidateNotNullOrEmpty()]
         [string]    $Title,
 
         [Parameter(ParameterSetName = 'Document')]
@@ -25,13 +55,23 @@ function Rename-StandardMedia {
         [string[]]  $Authors,
 
         [Parameter(ParameterSetName = 'Comic')]
+        [Parameter(ParameterSetName = 'Series')]
         [string[]]  $Creators,
 
         [Parameter(ParameterSetName = 'Document')]
         [Parameter(ParameterSetName = 'Anime')]
         [Parameter(ParameterSetName = 'Comic')]
+        [Parameter(ParameterSetName = 'Movie')]
+        [Parameter(ParameterSetName = 'Series')]
+        [Parameter(ParameterSetName = 'Game')]
         [Alias('y')]
-        [string]    $Year,
+        [object[]]  $Year,
+
+        [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Movie')]
+        [Parameter(ParameterSetName = 'Series')]
+        [Alias('enc')]
+        [string]    $Encoding,
 
         [Parameter(ParameterSetName = 'Document')]
         [Parameter(ParameterSetName = 'Comic')]
@@ -39,6 +79,7 @@ function Rename-StandardMedia {
         [string]    $Publisher,
 
         [Parameter(ParameterSetName = 'Document')]
+        [Parameter(ParameterSetName = 'Comic')]
         [Alias('e')]
         [string]    $Edition,
 
@@ -47,7 +88,17 @@ function Rename-StandardMedia {
         [string[]]  $Studios,
 
         [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Comic')]
+        [Parameter(ParameterSetName = 'Series')]
+        [Alias('ao')]
+        [Nullable[int]] $ArcOrder,
+
+        [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Series')]
         [string]    $Season,
+
+        [Parameter(ParameterSetName = 'Series')]
+        [string]    $SeasonName,
 
         [Parameter(ParameterSetName = 'Anime')]
         [Parameter(ParameterSetName = 'Comic')]
@@ -66,24 +117,43 @@ function Rename-StandardMedia {
         [string]    $IssueName,
 
         [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Series')]
         [Alias('n')]
-        [int]       $EpisodeNumber,
+        [Nullable[int]] $EpisodeNumber,
 
         [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Series')]
         [Alias('ep')]
-        [string]    $EpisodeName
+        [string]    $EpisodeName,
+
+        [Parameter(ParameterSetName = 'Movie')]
+        [Alias('dir')]
+        [string[]]  $Directors,
+
+        [Parameter(ParameterSetName = 'Game')]
+        [Alias('dev')]
+        [string[]]  $Developers,
+
+        [Parameter(ParameterSetName = 'Game')]
+        [Alias('plt')]
+        [string]    $Platform,
+
+        [switch]    $PassThru
     )
 
     process {
-        $extension = [System.IO.Path]::GetExtension($Item)
+        $resolvedPath = Resolve-StandardMediaPath -Path $Item
+        $extension = [System.IO.Path]::GetExtension($resolvedPath)
 
         $baseName = switch ($PSCmdlet.ParameterSetName) {
             'Anime' {
                 Get-BaseNameForAnime `
                     -Title $Title `
                     -Year $Year `
+                    -Encoding $Encoding `
                     -Season $Season `
                     -Arc $Arc `
+                    -ArcOrder $ArcOrder `
                     -Studios $Studios `
                     -EpisodeNumber $EpisodeNumber `
                     -EpisodeName $EpisodeName
@@ -93,12 +163,41 @@ function Rename-StandardMedia {
                     -Title $Title `
                     -Year $Year `
                     -Arc $Arc `
+                    -ArcOrder $ArcOrder `
                     -Volume $Volume `
                     -VolumeName $VolumeName `
                     -IssueNumber $IssueNumber `
                     -IssueName $IssueName `
                     -Creators $Creators `
-                    -Publisher $Publisher
+                    -Publisher $Publisher `
+                    -Edition $Edition
+            }
+            'Movie' {
+                Get-BaseNameForMovie `
+                    -Title $Title `
+                    -Year $Year `
+                    -Encoding $Encoding `
+                    -Directors $Directors
+            }
+            'Series' {
+                Get-BaseNameForSeries `
+                    -Title $Title `
+                    -Year $Year `
+                    -Encoding $Encoding `
+                    -Season $Season `
+                    -SeasonName $SeasonName `
+                    -EpisodeNumber $EpisodeNumber `
+                    -EpisodeName $EpisodeName `
+                    -Arc $Arc `
+                    -ArcOrder $ArcOrder `
+                    -Creators $Creators
+            }
+            'Game' {
+                Get-BaseNameForGame `
+                    -Title $Title `
+                    -Year $Year `
+                    -Platform $Platform `
+                    -Developers $Developers
             }
             default {
                 Get-BaseNameForDocument `
@@ -113,185 +212,11 @@ function Rename-StandardMedia {
         $safeName = Format-FileName -FileName $baseName
         $newName = "$safeName$extension"
 
-        if ($PSCmdlet.ShouldProcess($Item, "Rename to '$newName'")) {
-            Rename-Item -Path $Item -NewName $newName
+        if ($PSCmdlet.ShouldProcess($resolvedPath, "Rename to '$newName'")) {
+            $result = Rename-Item -LiteralPath $resolvedPath -NewName $newName -PassThru:$PassThru
+            if ($PassThru) {
+                return $result
+            }
         }
     }
-}
-
-function Get-BaseNameForAnime {
-    [CmdletBinding()]
-    param (
-        [string]    $Title,
-        [string]    $Year,
-        [string]    $Season,
-        [string]    $Arc,
-        [string[]]  $Studios,
-        [int]       $EpisodeNumber,
-        [string]    $EpisodeName
-    )
-
-    $yearPart     = if ($Year) { "($Year)" } else { $null }
-    $seasonArc    = Get-SeasonArcPart -Season $Season -Arc $Arc
-    $studioPart   = Get-StudioPart -Studios $Studios
-
-    $episodePart = if ($EpisodeNumber) {
-        $ep = 'E' + ('{0:D3}' -f $EpisodeNumber)
-        if ($EpisodeName) {
-            "$ep - $EpisodeName"
-        } else {
-            $ep
-        }
-    } elseif ($EpisodeName) {
-        $EpisodeName
-    } else {
-        $null
-    }
-
-    $parts = @(
-        $Title
-        $yearPart
-        $seasonArc
-        $episodePart
-    ) | Where-Object { $_ }
-
-    $name = ($parts -join ' ')
-    if ($studioPart) {
-        $name += " $studioPart"
-    }
-
-    return $name
-}
-
-function Get-BaseNameForComic {
-    [CmdletBinding()]
-    param (
-        [string]   $Title,
-        [string]   $Year,
-        [string]   $Arc,
-        [string[]] $Creators,
-        [string]   $Publisher,
-        [string]   $Volume,
-        [string]   $VolumeName,
-        [string]   $IssueNumber,
-        [string]   $IssueName
-    )
-
-    $yearPart = if ($Year) { "($Year)" } else { $null }
-
-    $volumePart = if ($Volume) {
-        "Vol.$Volume"
-    } else { $null }
-
-    $volumeNamePart = if ($VolumeName) {
-        ": $VolumeName"
-    } else { $null }
-
-    $arcPart = if ($Arc) {
-        "[$Arc]"
-    } else { $null }
-
-    $issuePart = if ($IssueNumber) {
-        $num = if ($IssueNumber -match '^\d+$') {
-            '#{0:D3}' -f [int]$IssueNumber
-        } else {
-            "#$IssueNumber"
-        }
-
-        if ($IssueName) {
-            "$num - $IssueName"
-        } else {
-            $num
-        }
-    } elseif ($IssueName) {
-        $IssueName
-    } else {
-        $null
-    }
-
-    $mainParts = @(
-        $Title
-        $yearPart
-        $volumePart
-        $volumeNamePart
-        $arcPart
-        $issuePart
-    ) | Where-Object { $_ }
-
-    $baseName = $mainParts -join ' '
-
-    $metaParts = @()
-
-    if ($Creators) {
-        $metaParts += "by " + ($Creators -join ', ')
-    }
-
-    if ($metaParts.Count -gt 0) {
-        $baseName += " (" + ($metaParts -join ', ') + ")"
-    }
-
-    if ($Publisher) {
-        $baseName += " [$Publisher]"
-    }
-
-    return $baseName
-}
-
-
-function Get-BaseNameForDocument {
-    param (
-        [string] $Title,
-        [string] $Year,
-        [string] $Edition,
-        [string] $Publisher,
-        [string[]] $Authors
-    )
-    $detailsPart = Get-DetailPart -Parts @($Year, $Edition, $Publisher)
-
-    $authorPart = ($Authors -and ($Authors -join '').Trim().Length -gt 0) ? (
-        ' - ' + ($Authors -join ', ')
-    ) : ''
-
-    return "$Title$detailsPart$authorPart"
-}
-
-function Get-SeasonArcPart {
-    param (
-        [string] $Season,
-        [string] $Arc
-    )
-    $list = @()
-    if ($Season) { $list += $Season }
-    if ($Arc) { $list += $Arc }
-
-    return ($list.Count -gt 0) ? ' (' + ($list -join ', ') + ')' : ''
-}
-
-function Get-StudioPart {
-    param (
-        [string[]] $Studios
-    )
-    return ($Studios) ? ' [' + ($Studios -join ', ') + ']' : ''
-}
-
-function Get-DetailPart {
-    param (
-        [string[]] $Parts
-    )
-    $filtered = $Parts | Where-Object { $_ }
-    return ($filtered.Count -gt 0) ? ' (' + ($filtered -join ', ') + ')' : ''
-}
-
-function Format-FileName {
-    [CmdletBinding()]
-    param (
-        [string] $FileName
-    )
-
-    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() |
-        ForEach-Object { [Regex]::Escape($_) } |
-        Join-String -Separator ''
-    $pattern = "[$invalidChars]"
-
-    return [Regex]::Replace($FileName, $pattern, '_')
 }

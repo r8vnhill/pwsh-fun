@@ -64,7 +64,7 @@ function Install-FunModules {
 
             if ($PSCmdlet.ShouldProcess($moduleName, 'Import module')) {
                 Import-Module $psm1Path -Force -Scope Global
-                Write-Host "✅ Imported module: $moduleName" -ForegroundColor Green
+                Write-Verbose "✅ Imported module: $moduleName"
             }
         }
 }

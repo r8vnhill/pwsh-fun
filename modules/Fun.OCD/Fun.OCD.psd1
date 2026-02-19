@@ -10,7 +10,6 @@
 
     FunctionsToExport    = @(
         'Rename-StandardMedia',
-        'Convert-AudioToMp3',
         'Install-SSHKey',
         'Remove-DirectoryContents',
         'Move-AndLinkItem'
