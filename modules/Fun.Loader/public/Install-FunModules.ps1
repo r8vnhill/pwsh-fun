@@ -359,6 +359,11 @@ function Install-FunModules {
         $refs = New-Object System.Collections.Generic.List[FunModuleRef]
         # Track whether we received any pipeline input.
         $hadInput = $false
+
+        # Compute default BasePath at runtime to avoid Resolve-Path throwing at parse time
+        if (-not $PSBoundParameters.ContainsKey('BasePath')) {
+            $BasePath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
+        }
     }
 
     process {

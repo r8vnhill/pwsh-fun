@@ -92,3 +92,32 @@ Describe 'Install-FunModules (self-discovery + error path)' {
         ($res | Where-Object Name -EQ 'Good').Version | Should -Be ([version]'2.3.4')
     }
 }
+
+Describe 'Install-FunModules (default BasePath)' {
+    BeforeEach {
+        # Mock Get-FunModuleFiles to track calls with any BasePath argument
+        Mock -CommandName Get-FunModuleFiles -Verifiable -MockWith {
+            param([string]$BasePath)
+            # Verify that BasePath is not null or empty when called
+            if ([string]::IsNullOrWhiteSpace($BasePath)) {
+                throw 'BasePath parameter is empty or null'
+            }
+            # Return an empty list for this test
+            @()
+        }
+
+        Mock -CommandName Import-Module
+    }
+
+    It 'sets default BasePath when not provided (no empty string error)' {
+        # This test catches the regression where -BasePath was not defaulted,
+        # causing Get-FunModuleFiles to receive an empty string and fail with:
+        # "Cannot bind argument to parameter 'Path' because it is an empty string."
+        
+        # Should NOT throw when called without -BasePath
+        { Install-FunModules -Confirm:$false } | Should -Not -Throw
+
+        # Verify Get-FunModuleFiles was called exactly once
+        Assert-MockCalled Get-FunModuleFiles -Times 1 -Exactly
+    }
+}

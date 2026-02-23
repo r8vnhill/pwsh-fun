@@ -28,7 +28,7 @@ Import-Module "./modules/Fun.Ffmpeg/Fun.Ffmpeg.psd1"
 
 ## 🧩 Commands
 
-TODO
+- `Convert-ToVvc`: Convert video files to VVC (H.266) with optional validation and parallel execution.
 
 ## 📄 License
 

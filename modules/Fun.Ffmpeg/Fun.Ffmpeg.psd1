@@ -14,7 +14,9 @@
     Copyright         = '(c) Ignacio Slater-Muñoz. All rights reserved.'
 
     # Explicit list of exported functions
-    FunctionsToExport = @()
+    FunctionsToExport = @(
+        'Convert-ToVvc'
+    )
 
     # No cmdlets, variables, or aliases are exported
     CmdletsToExport   = @()
