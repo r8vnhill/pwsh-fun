@@ -112,7 +112,19 @@ BeforeAll {
 
             [switch] $CreateOutput,
 
-            [int] $FfmpegExitCode = 0
+            [int] $FfmpegExitCode = 0,
+
+            [switch] $UseLiteralPath,
+
+            [switch] $UsePipelinePath,
+
+            [switch] $UseWhatIf,
+
+            [switch] $CreateExistingOutput,
+
+            [string] $ExistingOutputName,
+
+            [string[]] $Extensions
         )
 
         $testRoot = New-VvcTestRoot
@@ -126,6 +138,18 @@ BeforeAll {
         $outputPath = Join-Path $outputDir (
             '{0}_vvc.mkv' -f [Path]::GetFileNameWithoutExtension($FileName)
         )
+        $preExistingOutputPath = if ($CreateExistingOutput) {
+            $existingName = if ([string]::IsNullOrWhiteSpace($ExistingOutputName)) {
+                [Path]::GetFileName($outputPath)
+            }
+            else {
+                $ExistingOutputName
+            }
+            Join-Path $outputDir $existingName
+        }
+        else {
+            $null
+        }
 
         $markerParams = @{
             FfprobeMarker = $ffprobeMarkerPath
@@ -148,17 +172,49 @@ BeforeAll {
             Set-Content -LiteralPath $inputPath -Value $InputContent
         }
 
-        $result = @(Convert-ToVvc -InputDir $inputDir.FullName -OutputDir $outputDir)
+        if ($CreateExistingOutput -and $null -ne $preExistingOutputPath) {
+            New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+            Set-Content -LiteralPath $preExistingOutputPath -Value (
+                'preexisting valid vvc output' * 131072
+            )
+        }
+
+        $commandParams = @{
+            OutputDir = $outputDir
+        }
+
+        if ($null -ne $Extensions) {
+            $commandParams.Extensions = $Extensions
+        }
+
+        if ($UseWhatIf) {
+            $commandParams.WhatIf = $true
+        }
+
+        if ($UseLiteralPath) {
+            $commandParams.LiteralPath = $inputPath
+        }
+        elseif (-not $UsePipelinePath) {
+            $commandParams.InputDir = $inputDir.FullName
+        }
+
+        $result = if ($UsePipelinePath) {
+            @($inputPath | Convert-ToVvc @commandParams)
+        }
+        else {
+            @(Convert-ToVvc @commandParams)
+        }
 
         [pscustomobject]@{
-            TestRoot      = $testRoot
-            InputDir      = $inputDir.FullName
-            OutputDir     = $outputDir
-            InputPath     = $inputPath
-            OutputPath    = $outputPath
-            FfprobeMarker = $ffprobeMarkerPath
-            FfmpegMarker  = $ffmpegMarkerPath
-            Result        = $result
+            TestRoot           = $testRoot
+            InputDir           = $inputDir.FullName
+            OutputDir          = $outputDir
+            InputPath          = $inputPath
+            OutputPath         = $outputPath
+            ExistingOutputPath = $preExistingOutputPath
+            FfprobeMarker      = $ffprobeMarkerPath
+            FfmpegMarker       = $ffmpegMarkerPath
+            Result             = $result
         }
     }
 }
@@ -176,6 +232,12 @@ Describe 'Convert-ToVvc' {
     AfterEach {
         # Reset again after each example to avoid marker or scenario leakage.
         Reset-FakeMediaToolEnvironment -Context $script:toolSupport
+    }
+
+    It 'advertises ConvertToVvcResult as OutputType metadata' {
+        $command = Get-Command Convert-ToVvc
+
+        @($command.OutputType).Type.Name | Should -Contain 'ConvertToVvcResult'
     }
 
     Context 'input validation' {
@@ -216,6 +278,7 @@ Describe 'Convert-ToVvc' {
             $scenario = Invoke-ConvertScenario @scenarioParams
 
             $scenario.Result.Count | Should -Be 1
+            $scenario.Result[0].GetType().Name | Should -Be 'ConvertToVvcResult'
             $scenario.Result[0].Ok | Should -BeFalse
             $scenario.Result[0].Skipped | Should -BeFalse
             $scenario.Result[0].Reason | Should -Match '^invalid input: '
@@ -270,6 +333,7 @@ Describe 'Convert-ToVvc' {
             $scenario = Invoke-ConvertScenario @scenarioParams
 
             $scenario.Result.Count | Should -Be 1
+            $scenario.Result[0].GetType().Name | Should -Be 'ConvertToVvcResult'
             $scenario.Result[0].Ok | Should -BeTrue
             $scenario.Result[0].Skipped | Should -BeFalse
             $scenario.Result[0].Reason | Should -Be ''
@@ -280,6 +344,128 @@ Describe 'Convert-ToVvc' {
             (Test-Path -LiteralPath $scenario.FfprobeMarker) | Should -BeTrue
             (Test-Path -LiteralPath $scenario.FfmpegMarker) | Should -BeTrue
             (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+        }
+
+        It 'supports LiteralPath and pipeline path input' -ForEach @(
+            @{ Name = 'explicit LiteralPath'; UseLiteralPath = $true; UsePipelinePath = $false }
+            @{ Name = 'pipeline LiteralPath'; UseLiteralPath = $false; UsePipelinePath = $true }
+        ) {
+            $scenarioParams = @{
+                FileName         = 'literal.mkv'
+                InputContent     = ('literal path media payload' * 4096)
+                FfprobeScenarios = @{
+                    'literal.mkv' = @{
+                        FormatName = 'matroska,webm'
+                        CodecName  = 'h264'
+                        Duration   = '1440.0'
+                    }
+                    'literal_vvc.__partial__.mkv' = @{
+                        FormatName = 'matroska,webm'
+                        CodecName  = 'vvc'
+                        Duration   = '1440.0'
+                    }
+                    'literal_vvc.mkv' = @{
+                        FormatName = 'matroska,webm'
+                        CodecName  = 'vvc'
+                        Duration   = '1440.0'
+                    }
+                }
+                CreateOutput    = $true
+                UseLiteralPath  = $UseLiteralPath
+                UsePipelinePath = $UsePipelinePath
+            }
+            $scenario = Invoke-ConvertScenario @scenarioParams
+
+            $scenario.Result.Count | Should -Be 1
+            $scenario.Result[0].GetType().Name | Should -Be 'ConvertToVvcResult'
+            $scenario.Result[0].Ok | Should -BeTrue
+            $scenario.Result[0].File | Should -Be 'literal.mkv'
+            (Test-Path -LiteralPath $scenario.FfmpegMarker) | Should -BeTrue
+            (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+        }
+
+        It 'returns a skipped result when a valid output already exists and Overwrite is not set' {
+            $testRoot = New-VvcTestRoot
+            $inputDir = New-Item -ItemType Directory -Path (
+                Join-Path $testRoot 'input'
+            ) -Force
+            $outputDir = Join-Path $testRoot 'out'
+            $inputPath = Join-Path $inputDir.FullName 'exists.mkv'
+            $outputPath = Join-Path $outputDir 'exists_vvc.mkv'
+            $ffprobeMarkerPath = Join-Path $testRoot 'ffprobe-invoked.txt'
+            $ffmpegMarkerPath = Join-Path $testRoot 'ffmpeg-invoked.txt'
+
+            $markerParams = @{
+                FfprobeMarker = $ffprobeMarkerPath
+                FfmpegMarker  = $ffmpegMarkerPath
+            }
+            Set-FakeMediaToolMarkers @markerParams
+            Set-FakeFfprobeScenarios -Scenarios @{
+                'exists.mkv' = @{
+                    FormatName = 'matroska,webm'
+                    CodecName  = 'h264'
+                    Duration   = '1440.0'
+                }
+                'exists_vvc.mkv' = @{
+                    FormatName = 'matroska,webm'
+                    CodecName  = 'vvc'
+                    Duration   = '1440.0'
+                }
+            }
+
+            Set-Content -LiteralPath $inputPath -Value ('valid source media' * 4096)
+            New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+            Set-Content -LiteralPath $outputPath -Value (
+                'preexisting valid vvc output' * 131072
+            )
+
+            $result = @(Convert-ToVvc -InputDir $inputDir.FullName -OutputDir $outputDir)
+
+            $result.Count | Should -Be 1
+            $result[0].GetType().Name | Should -Be 'ConvertToVvcResult'
+            $result[0].Ok | Should -BeFalse
+            $result[0].Skipped | Should -BeTrue
+            $result[0].Reason | Should -Be 'exists (valid)'
+            (Test-Path -LiteralPath $ffmpegMarkerPath) | Should -BeFalse
+            (Test-Path -LiteralPath $outputPath) | Should -BeTrue
+        }
+
+        It 'returns no results under WhatIf and does not invoke ffmpeg' {
+            $scenario = Invoke-ConvertScenario @{
+                FileName        = 'whatif.mkv'
+                InputContent    = ('whatif source media' * 4096)
+                UseWhatIf       = $true
+                FfprobeScenarios = @{
+                    'whatif.mkv' = @{
+                        FormatName = 'matroska,webm'
+                        CodecName  = 'h264'
+                        Duration   = '1440.0'
+                    }
+                }
+            }
+
+            $scenario.Result.Count | Should -Be 0
+            (Test-Path -LiteralPath $scenario.FfmpegMarker) | Should -BeFalse
+            (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeFalse
+        }
+
+        It 'returns no results when no files match the requested extensions' {
+            $scenario = Invoke-ConvertScenario @{
+                FileName      = 'nomatch.mkv'
+                InputContent  = ('unsupported extension for this run' * 4096)
+                Extensions    = @('.mp4')
+                FfprobeScenarios = @{
+                    'nomatch.mkv' = @{
+                        FormatName = 'matroska,webm'
+                        CodecName  = 'h264'
+                        Duration   = '1440.0'
+                    }
+                }
+            }
+
+            $scenario.Result.Count | Should -Be 0
+            (Test-Path -LiteralPath $scenario.FfprobeMarker) | Should -BeFalse
+            (Test-Path -LiteralPath $scenario.FfmpegMarker) | Should -BeFalse
         }
     }
 }

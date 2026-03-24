@@ -1,664 +1,219 @@
-#Requires -Version 7.0
+#Requires -Version 7.5
+using module ..\internal\ConvertToVvc.Types.psm1
 Set-StrictMode -Version 3.0
 
-function Convert-ToVvc {
-    <#
-    .SYNOPSIS
-    Converts video files to VVC (H.266) using ffmpeg/libvvenc.
+<#
+.SYNOPSIS
+    Converts video files to VVC (H.266) with ffmpeg and `libvvenc`.
 
-    .DESCRIPTION
-    Scans an input folder for video files, encodes each file to VVC, and writes
-    `.mkv` outputs into the target folder. Conversion is done through temporary
-    files first and only promoted to final output after verification.
+.DESCRIPTION
+    `Convert-ToVvc` is the public orchestration command for the VVC workflow exposed
+    by `Fun.Ffmpeg`.
 
-    The function supports optional recursion, overwrite control, post-conversion
-    validation, and parallel processing.
+    The command prepares the conversion run in four stages:
 
-    .PARAMETER InputDir
-    Input directory to scan for source videos.
+    1. Resolve and validate the requested inputs.
+    2. Resolve the output directory and filter the final worklist through
+       `ShouldProcess`.
+    3. Build the self-contained worker payload used for sequential or parallel execution.
+    4. Run the worker for each selected file and emit typed results.
 
-    .PARAMETER OutputDir
+    Before any file is converted, the preparation phase resolves `ffmpeg` and `ffprobe`,
+    validates the requested extensions, and confirms that the active `ffmpeg` build
+    exposes the `libvvenc` encoder required for VVC output.
+
+    Each file is converted to a temporary output first. The temporary file is promoted to
+    its final `.mkv` path only after post-conversion validation succeeds according to the
+    selected verification mode.
+
+    This function intentionally remains an orchestration layer. Shared preparation,
+    discovery, and summarization logic lives in `internal/ConvertToVvc.Helpers.ps1`, while
+    the per-file worker shared by sequential and parallel execution lives in
+    `internal/ConvertToVvc.Worker.ps1`.
+
+.PARAMETER InputDir
+    Directory scanned for source videos when using the default `Directory` parameter set.
+
+    This parameter is ignored when `LiteralPath` is used.
+
+.PARAMETER LiteralPath
+    Explicit file paths to convert.
+
+    Accepts pipeline input by value and by property name so the command can be used with
+    `Get-ChildItem` output or with objects exposing properties such as `Path`, `FullName`,
+    `PSPath`, or `OriginalPath`.
+
+.PARAMETER OutputDir
     Destination directory for converted files.
 
-    .PARAMETER QP
-    Constant QP value used by `libvvenc`.
+    The directory is resolved to an absolute path and created when it does not already
+    exist.
 
-    .PARAMETER Preset
+.PARAMETER QP
+    Constant quantization parameter passed to `libvvenc`.
+
+    Lower values usually favor quality at the cost of larger output and slower encoding,
+    while higher values usually reduce output size at the cost of quality.
+
+.PARAMETER Preset
     Encoding preset passed to `libvvenc`.
 
-    .PARAMETER Recurse
-    Recursively scan `InputDir`.
+    Accepted values range from `faster` to `veryslow`.
 
-    .PARAMETER Overwrite
-    Overwrite valid existing outputs. Invalid existing outputs are always rebuilt.
+.PARAMETER Recurse
+    Recursively scans `InputDir` for matching files.
 
-    .PARAMETER Suffix
-    Suffix appended to output base filename.
+    This parameter is relevant only in the `Directory` parameter set.
 
-    .PARAMETER MaxParallel
-    Maximum number of files processed in parallel. Use `1` for sequential mode.
+.PARAMETER Overwrite
+    Overwrites valid existing outputs.
 
-    .PARAMETER Extensions
-    File extensions to include from `InputDir`.
+    Existing outputs that are invalid or suspicious are rebuilt regardless of this switch.
 
-    .PARAMETER Verify
-    Verification mode:
-    - `none`: only existence and codec checks.
-    - `quick`: includes duration drift check.
-    - `strict`: includes duration drift and decode test.
+.PARAMETER Suffix
+    Suffix appended to the output base filename before the final `.mkv` extension.
 
-    .PARAMETER MaxDrift
-    Maximum allowed input/output duration difference in seconds for verification.
+    For example, `movie.mp4` with the default suffix becomes `movie_vvc.mkv`.
 
-    .EXAMPLE
+.PARAMETER MaxParallel
+    Maximum number of files processed concurrently.
+
+    Use `1` for sequential execution. Values greater than `1` use
+    `ForEach-Object -Parallel` together with the self-contained internal worker.
+
+.PARAMETER Extensions
+    File extensions included from the selected inputs.
+
+    Matching is case-insensitive. Values are normalized internally, so both `mkv` and
+    `.mkv` are accepted.
+
+.PARAMETER Verify
+    Post-conversion verification mode.
+
+    Supported values are:
+    - `none`   : verify only existence and codec expectations
+    - `quick`  : also verify duration drift
+    - `strict` : also verify duration drift and run a decode test
+
+.PARAMETER MaxDrift
+    Maximum allowed input/output duration difference, in seconds, for verification.
+
+    This value is used only by verification modes that perform a duration check.
+
+.EXAMPLE
     Convert-ToVvc -InputDir 'D:\Videos' -OutputDir 'D:\Videos\vvc_out' -Recurse
 
-    Converts supported video files under `D:\Videos` recursively.
+    Scans `D:\Videos` recursively and converts matching files into `D:\Videos\vvc_out`.
 
-    .EXAMPLE
+.EXAMPLE
     Convert-ToVvc -InputDir . -OutputDir .\vvc -MaxParallel 4 -Verify strict -WhatIf
 
-    Shows what would be converted with strict verification using four workers.
+    Shows which files would be converted using four workers and strict post-conversion
+    validation.
 
-    .OUTPUTS
-    PSCustomObject
-    #>
-    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
+.EXAMPLE
+    Get-ChildItem .\incoming -File *.mkv | Convert-ToVvc -OutputDir .\vvc_out
+
+    Converts explicitly piped files into `.\vvc_out`.
+
+.OUTPUTS
+    ConvertToVvcResult
+
+    Emits one `ConvertToVvcResult` per attempted file. The result exposes:
+    - `File`
+    - `Ok`
+    - `Skipped`
+    - `Reason`
+    - `OriginalMB`
+    - `NewMB`
+    - `Ratio`
+
+    `-WhatIf` can legitimately emit no result objects when every candidate is filtered out
+    by `ShouldProcess`.
+
+    Although the public command emits typed `ConvertToVvcResult` objects, the internal
+    parallel worker may still use a simpler intermediate shape for runspace-safe transport
+    before the results are normalized.
+
+.NOTES
+    This command does not implement probing, encoder detection, per-file conversion, or
+    final summarization directly. Those responsibilities are delegated to the internal
+    helper and worker modules to keep this function focused on orchestration.
+#>
+function Convert-ToVvc {
+    [OutputType([ConvertToVvcResult])]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(ParameterSetName = 'Directory')]
         [string]$InputDir = '.',
 
-        [Parameter(Mandatory, ParameterSetName = 'LiteralPath', ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        [Parameter(
+            Mandatory,
+            ParameterSetName = 'LiteralPath',
+            ValueFromPipeline = $true,
+            ValueFromPipelineByPropertyName = $true
+        )]
         [Alias('FullName', 'PSPath', 'Path', 'OriginalPath')]
         [string[]]$LiteralPath,
 
-        [Parameter()]
         [string]$OutputDir = '.\vvc_out',
 
-        [Parameter()]
         [int]$QP = 32,
 
-        [Parameter()]
         [ValidateSet('faster', 'fast', 'medium', 'slow', 'slower', 'veryslow')]
         [string]$Preset = 'fast',
 
-        [Parameter()]
         [switch]$Recurse,
 
-        [Parameter()]
         [switch]$Overwrite,
 
-        [Parameter()]
         [string]$Suffix = '_vvc',
 
-        [Parameter()]
         [ValidateRange(1, 128)]
         [int]$MaxParallel = 1,
 
-        [Parameter()]
-        [string[]]$Extensions = @('.mkv', '.mp4', '.mov', '.avi', '.ts', '.m2ts', '.webm'),
+        [string[]]$Extensions = @(
+            '.mkv', '.mp4', '.mov', '.avi', '.ts', '.m2ts', '.webm'
+        ),
 
-        [Parameter()]
         [ValidateSet('none', 'quick', 'strict')]
         [string]$Verify = 'quick',
 
-        [Parameter()]
         [ValidateRange(0.0, 3600.0)]
         [double]$MaxDrift = 1.5
     )
 
-    function Get-FileSizeMB {
-        param([string]$Path)
-        try {
-            $fi = Get-Item -LiteralPath $Path -ErrorAction Stop
-            return [math]::Round($fi.Length / 1MB, 2)
-        } catch {
-            return 0
+    # Prepare the run by resolving inputs, tools, and normalized extension state.
+    $prepParams = @{
+        ParameterSetName = $PSCmdlet.ParameterSetName
+        InputDir         = $InputDir
+        LiteralPath      = $LiteralPath
+        Extensions       = $Extensions
+        Recurse          = $Recurse.IsPresent
+    }
+    $prep = Get-ConvertToVvcPreparation @prepParams
+
+    $inputFiles = $prep.InputFiles
+    if ($inputFiles.Count -eq 0) {
+        $noMatchParams = @{
+            Cmdlet           = $PSCmdlet
+            ParameterSetName = $PSCmdlet.ParameterSetName
+            InputDir         = $InputDir
+            Extensions       = $Extensions
         }
-    }
-
-    function Get-VideoCodecName {
-        param([string]$Path)
-        try {
-            $codec = ffprobe -v error -select_streams v:0 -show_entries stream=codec_name `
-                -of default=nw=1:nk=1 -- "$Path" 2>$null
-            return ($codec | Out-String).Trim()
-        } catch {
-            return ''
-        }
-    }
-
-    function Get-FormatDurationSec {
-        param([string]$Path)
-        try {
-            $duration = ffprobe -v error -show_entries format=duration `
-                -of default=nk=1:nw=1 -- "$Path" 2>$null
-            return [double]::Parse(($duration | Out-String).Trim(), [Globalization.CultureInfo]::InvariantCulture)
-        } catch {
-            return -1
-        }
-    }
-
-    function Get-InputProbeError {
-        param([string]$Path)
-
-        try {
-            $item = Get-Item -LiteralPath $Path -ErrorAction Stop
-            if ($item.Length -le 0) {
-                return 'input file is empty.'
-            }
-        } catch {
-            return $_.Exception.Message
-        }
-
-        try {
-            $probeOutput = @(ffprobe -v error -show_entries format=format_name `
-                -of default=nw=1:nk=1 -- "$Path" 2>&1)
-            if ($LASTEXITCODE -eq 0) {
-                return ''
-            }
-
-            $probeMessage = ($probeOutput | Out-String).Trim()
-            if ([string]::IsNullOrWhiteSpace($probeMessage)) {
-                return 'ffprobe could not read the input container.'
-            }
-
-            return $probeMessage
-        } catch {
-            return $_.Exception.Message
-        }
-    }
-
-    function Test-Decodable {
-        param(
-            [string]$Path,
-            [string]$FfmpegPath
-        )
-
-        & $FfmpegPath -v error -noautorotate -err_detect explode -t 8 -i "$Path" -f null - 2>$null
-        return ($LASTEXITCODE -eq 0)
-    }
-
-    function Test-Converted {
-        param(
-            [string]$OriginalPath,
-            [string]$OutputPath,
-            [string]$Mode,
-            [double]$MaxDriftSec,
-            [string]$FfmpegPath
-        )
-
-        if (-not (Test-Path -LiteralPath $OutputPath)) {
-            return @{ Ok = $false; Reason = 'missing output' }
-        }
-
-        $codec = Get-VideoCodecName -Path $OutputPath
-        if ($codec -notmatch '^(vvc|vvc1)$') {
-            return @{ Ok = $false; Reason = "unexpected codec: '$codec'" }
-        }
-
-        if ($Mode -ne 'none') {
-            $dIn = Get-FormatDurationSec -Path $OriginalPath
-            $dOut = Get-FormatDurationSec -Path $OutputPath
-            if ($dIn -gt 0 -and $dOut -gt 0) {
-                $drift = [math]::Abs($dIn - $dOut)
-                if ($drift -gt $MaxDriftSec) {
-                    return @{ Ok = $false; Reason = ('duration drift {0:N2}s' -f $drift) }
-                }
-            }
-
-            if ($Mode -eq 'strict' -and -not (Test-Decodable -Path $OutputPath -FfmpegPath $FfmpegPath)) {
-                return @{ Ok = $false; Reason = 'decode test failed' }
-            }
-        }
-
-        return @{ Ok = $true; Reason = '' }
-    }
-
-    function New-OutputTempPath {
-        param([string]$FinalPath)
-
-        $dir = [IO.Path]::GetDirectoryName($FinalPath)
-        $name = [IO.Path]::GetFileNameWithoutExtension($FinalPath)
-        $ext = [IO.Path]::GetExtension($FinalPath)
-        return (Join-Path $dir ('{0}.__partial__{1}' -f $name, $ext))
-    }
-
-    function Build-Args {
-        param(
-            [string]$InputPath,
-            [string]$OutputPath,
-            [int]$QpValue,
-            [string]$PresetValue,
-            [switch]$AllowOverwrite
-        )
-
-        $ffArgs = @()
-        if ($AllowOverwrite) { $ffArgs += '-y' } else { $ffArgs += '-n' }
-        $ffArgs += @(
-            '-hide_banner',
-            '-stats', '-loglevel', 'error',
-            '-analyzeduration', '200M', '-probesize', '200M',
-            '-i', $InputPath,
-            '-map', '0', '-map_chapters', '0', '-map_metadata', '0',
-            '-c:v', 'libvvenc', '-profile:v', 'main10', '-pix_fmt', 'yuv420p10le',
-            '-preset', $PresetValue, '-qp', $QpValue, '-threads', '0',
-            '-c:a', 'copy', '-c:s', 'copy', '-c:t', 'copy',
-            $OutputPath
-        )
-        return $ffArgs
-    }
-
-    $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
-    if (-not $ffmpeg) {
-        throw "ffmpeg was not found in PATH."
-    }
-
-    $ffprobe = Get-Command ffprobe -ErrorAction SilentlyContinue
-    if (-not $ffprobe) {
-        throw "ffprobe was not found in PATH."
-    }
-
-    $hasVvenc = ffmpeg -hide_banner -encoders 2>$null | Select-String -SimpleMatch 'libvvenc'
-    if (-not $hasVvenc) {
-        throw "Your ffmpeg build does not include the 'libvvenc' encoder."
-    }
-
-    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
-
-    $extSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $Extensions | ForEach-Object { $null = $extSet.Add($_) }
-
-    $files = @()
-    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
-        $resolvedFiles = foreach ($path in $LiteralPath) {
-            if ([string]::IsNullOrWhiteSpace($path)) {
-                continue
-            }
-
-            $resolvedPath = Resolve-Path -LiteralPath $path -ErrorAction Stop
-            foreach ($entry in @($resolvedPath)) {
-                $item = Get-Item -LiteralPath $entry.ProviderPath -ErrorAction Stop
-                if ($item -is [System.IO.DirectoryInfo]) {
-                    continue
-                }
-                if ($extSet.Contains($item.Extension)) {
-                    $item
-                }
-            }
-        }
-
-        $files = @($resolvedFiles | Sort-Object FullName -Unique)
-    } else {
-        $gciParams = @{ Path = $InputDir; File = $true; ErrorAction = 'Stop' }
-        if ($Recurse.IsPresent) {
-            $gciParams.Recurse = $true
-        }
-        $files = @(Get-ChildItem @gciParams | Where-Object { $extSet.Contains($_.Extension) })
-    }
-
-    if ($files.Count -eq 0) {
-        $sourceLabel = if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') { 'explicit paths' } else { "'$InputDir'" }
-        Write-Verbose "No matching videos found in $sourceLabel with extensions: $($Extensions -join ', ')."
+        Write-ConvertToVvcNoMatchingFilesVerbose @noMatchParams
         return @()
     }
 
-    $ffmpegPath = $ffmpeg.Path
-    $resolvedOutputDir = Resolve-Path -LiteralPath $OutputDir -ErrorAction Stop
-    $outputDirAbs = if ($resolvedOutputDir.ProviderPath) { $resolvedOutputDir.ProviderPath } else { $resolvedOutputDir.Path }
-
-    $processOne = {
-        param(
-            $File,
-            $SuffixValue,
-            $OutputDirValue,
-            $QpValue,
-            $PresetValue,
-            $OverwriteValue,
-            $FfmpegPath,
-            $VerifyMode,
-            $MaxDriftSec
-        )
-
-        function Get-FileSizeMB {
-            param([string]$Path)
-            try {
-                $fi = Get-Item -LiteralPath $Path -ErrorAction Stop
-                return [math]::Round($fi.Length / 1MB, 2)
-            } catch {
-                return 0
-            }
-        }
-
-        function Get-VideoCodecName {
-            param([string]$Path)
-            try {
-                $codec = ffprobe -v error -select_streams v:0 -show_entries stream=codec_name `
-                    -of default=nw=1:nk=1 -- "$Path" 2>$null
-                return ($codec | Out-String).Trim()
-            } catch {
-                return ''
-            }
-        }
-
-        function Get-FormatDurationSec {
-            param([string]$Path)
-            try {
-                $duration = ffprobe -v error -show_entries format=duration `
-                    -of default=nk=1:nw=1 -- "$Path" 2>$null
-                return [double]::Parse(($duration | Out-String).Trim(), [Globalization.CultureInfo]::InvariantCulture)
-            } catch {
-                return -1
-            }
-        }
-
-        function Get-InputProbeError {
-            param([string]$Path)
-
-            try {
-                $item = Get-Item -LiteralPath $Path -ErrorAction Stop
-                if ($item.Length -le 0) {
-                    return 'input file is empty.'
-                }
-            } catch {
-                return $_.Exception.Message
-            }
-
-            try {
-                $probeOutput = @(ffprobe -v error -show_entries format=format_name `
-                    -of default=nw=1:nk=1 -- "$Path" 2>&1)
-                if ($LASTEXITCODE -eq 0) {
-                    return ''
-                }
-
-                $probeMessage = ($probeOutput | Out-String).Trim()
-                if ([string]::IsNullOrWhiteSpace($probeMessage)) {
-                    return 'ffprobe could not read the input container.'
-                }
-
-                return $probeMessage
-            } catch {
-                return $_.Exception.Message
-            }
-        }
-
-        function Test-Decodable {
-            param(
-                [string]$Path,
-                [string]$FfmpegPath
-            )
-
-            & $FfmpegPath -v error -noautorotate -err_detect explode -t 8 -i "$Path" -f null - 2>$null
-            return ($LASTEXITCODE -eq 0)
-        }
-
-        function Test-Converted {
-            param(
-                [string]$OriginalPath,
-                [string]$OutputPath,
-                [string]$Mode,
-                [double]$MaxDriftSec,
-                [string]$FfmpegPath
-            )
-
-            if (-not (Test-Path -LiteralPath $OutputPath)) {
-                return @{ Ok = $false; Reason = 'missing output' }
-            }
-
-            $codec = Get-VideoCodecName -Path $OutputPath
-            if ($codec -notmatch '^(vvc|vvc1)$') {
-                return @{ Ok = $false; Reason = "unexpected codec: '$codec'" }
-            }
-
-            if ($Mode -ne 'none') {
-                $dIn = Get-FormatDurationSec -Path $OriginalPath
-                $dOut = Get-FormatDurationSec -Path $OutputPath
-                if ($dIn -gt 0 -and $dOut -gt 0) {
-                    $drift = [math]::Abs($dIn - $dOut)
-                    if ($drift -gt $MaxDriftSec) {
-                        return @{ Ok = $false; Reason = ('duration drift {0:N2}s' -f $drift) }
-                    }
-                }
-
-                if ($Mode -eq 'strict' -and -not (Test-Decodable -Path $OutputPath -FfmpegPath $FfmpegPath)) {
-                    return @{ Ok = $false; Reason = 'decode test failed' }
-                }
-            }
-
-            return @{ Ok = $true; Reason = '' }
-        }
-
-        function New-OutputTempPath {
-            param([string]$FinalPath)
-
-            $dir = [IO.Path]::GetDirectoryName($FinalPath)
-            $name = [IO.Path]::GetFileNameWithoutExtension($FinalPath)
-            $ext = [IO.Path]::GetExtension($FinalPath)
-            return (Join-Path $dir ('{0}.__partial__{1}' -f $name, $ext))
-        }
-
-        function Build-Args {
-            param(
-                [string]$InputPath,
-                [string]$OutputPath,
-                [int]$QpValue,
-                [string]$PresetValue,
-                [switch]$AllowOverwrite
-            )
-
-            $ffArgs = @()
-            if ($AllowOverwrite) { $ffArgs += '-y' } else { $ffArgs += '-n' }
-            $ffArgs += @(
-                '-hide_banner',
-                '-stats', '-loglevel', 'error',
-                '-analyzeduration', '200M', '-probesize', '200M',
-                '-i', $InputPath,
-                '-map', '0', '-map_chapters', '0', '-map_metadata', '0',
-                '-c:v', 'libvvenc', '-profile:v', 'main10', '-pix_fmt', 'yuv420p10le',
-                '-preset', $PresetValue, '-qp', $QpValue, '-threads', '0',
-                '-c:a', 'copy', '-c:s', 'copy', '-c:t', 'copy',
-                $OutputPath
-            )
-            return $ffArgs
-        }
-
-        $inputPath = $File.FullName
-        $baseName = [IO.Path]::GetFileNameWithoutExtension($File.Name)
-        $outputName = "${baseName}${SuffixValue}.mkv"
-        $outputPath = Join-Path -Path $OutputDirValue -ChildPath $outputName
-        $outputTempPath = New-OutputTempPath -FinalPath $outputPath
-        $inputProbeError = Get-InputProbeError -Path $inputPath
-
-        if ($inputProbeError) {
-            $originalSize = Get-FileSizeMB -Path $inputPath
-            return [pscustomobject]@{
-                File       = $File.Name
-                Ok         = $false
-                Skipped    = $false
-                Reason     = "invalid input: $inputProbeError"
-                OriginalMB = $originalSize
-                NewMB      = 0
-                Ratio      = 0
-            }
-        }
-
-        if (Test-Path -LiteralPath $outputTempPath) {
-            Remove-Item -LiteralPath $outputTempPath -Force -ErrorAction SilentlyContinue
-        }
-
-        if (Test-Path -LiteralPath $outputPath) {
-            $check = Test-Converted -OriginalPath $inputPath -OutputPath $outputPath -Mode $VerifyMode -MaxDriftSec $MaxDriftSec -FfmpegPath $FfmpegPath
-            if (-not $check.Ok) {
-                $forceOverwrite = $true
-                $ffArgs = Build-Args -InputPath $inputPath -OutputPath $outputTempPath -QpValue $QpValue -PresetValue $PresetValue -AllowOverwrite:$forceOverwrite
-                & $FfmpegPath @ffArgs
-                $exitCode = $LASTEXITCODE
-                if ($exitCode -eq 0 -and (Test-Path -LiteralPath $outputTempPath)) {
-                    $post = Test-Converted -OriginalPath $inputPath -OutputPath $outputTempPath -Mode $VerifyMode -MaxDriftSec $MaxDriftSec -FfmpegPath $FfmpegPath
-                    if ($post.Ok) {
-                        try {
-                            if (Test-Path -LiteralPath $outputPath) {
-                                Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
-                            }
-                            Move-Item -LiteralPath $outputTempPath -Destination $outputPath -Force -ErrorAction Stop
-                        } catch {
-                            if (Test-Path -LiteralPath $outputTempPath) {
-                                Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-                            }
-                            return [pscustomobject]@{
-                                File       = $File.Name
-                                Ok         = $false
-                                Skipped    = $false
-                                Reason     = "final rename failed: $($_.Exception.Message)"
-                                OriginalMB = 0
-                                NewMB      = 0
-                                Ratio      = 0
-                            }
-                        }
-
-                        $originalSize = Get-FileSizeMB -Path $inputPath
-                        $newSize = Get-FileSizeMB -Path $outputPath
-                        return [pscustomobject]@{
-                            File       = $File.Name
-                            Ok         = $true
-                            Skipped    = $false
-                            Reason     = ''
-                            OriginalMB = $originalSize
-                            NewMB      = $newSize
-                            Ratio      = if ($originalSize -gt 0) { [math]::Round(($newSize / $originalSize) * 100, 1) } else { 0 }
-                        }
-                    }
-
-                    if (Test-Path -LiteralPath $outputTempPath) {
-                        Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-                    }
-                    return [pscustomobject]@{
-                        File       = $File.Name
-                        Ok         = $false
-                        Skipped    = $false
-                        Reason     = "re-encode failed: $($post.Reason)"
-                        OriginalMB = 0
-                        NewMB      = 0
-                        Ratio      = 0
-                    }
-                }
-
-                if (Test-Path -LiteralPath $outputTempPath) {
-                    Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-                }
-                return [pscustomobject]@{
-                    File       = $File.Name
-                    Ok         = $false
-                    Skipped    = $false
-                    Reason     = "ffmpeg exit $exitCode"
-                    OriginalMB = 0
-                    NewMB      = 0
-                    Ratio      = 0
-                }
-            }
-
-            if (-not $OverwriteValue) {
-                return [pscustomobject]@{
-                    File       = $File.Name
-                    Ok         = $false
-                    Skipped    = $true
-                    Reason     = 'exists (valid)'
-                    OriginalMB = 0
-                    NewMB      = 0
-                    Ratio      = 0
-                }
-            }
-        }
-
-        try {
-            $ffArgs = Build-Args -InputPath $inputPath -OutputPath $outputTempPath -QpValue $QpValue -PresetValue $PresetValue -AllowOverwrite:$OverwriteValue
-            & $FfmpegPath @ffArgs
-            $exitCode = $LASTEXITCODE
-
-            if ($exitCode -eq 0 -and (Test-Path -LiteralPath $outputTempPath)) {
-                $post = Test-Converted -OriginalPath $inputPath -OutputPath $outputTempPath -Mode $VerifyMode -MaxDriftSec $MaxDriftSec -FfmpegPath $FfmpegPath
-                if (-not $post.Ok) {
-                    if (Test-Path -LiteralPath $outputTempPath) {
-                        Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-                    }
-                    return [pscustomobject]@{
-                        File       = $File.Name
-                        Ok         = $false
-                        Skipped    = $false
-                        Reason     = "bad convert: $($post.Reason)"
-                        OriginalMB = 0
-                        NewMB      = 0
-                        Ratio      = 0
-                    }
-                }
-
-                try {
-                    if (Test-Path -LiteralPath $outputPath) {
-                        Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
-                    }
-                    Move-Item -LiteralPath $outputTempPath -Destination $outputPath -Force -ErrorAction Stop
-                } catch {
-                    if (Test-Path -LiteralPath $outputTempPath) {
-                        Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-                    }
-                    return [pscustomobject]@{
-                        File       = $File.Name
-                        Ok         = $false
-                        Skipped    = $false
-                        Reason     = "final rename failed: $($_.Exception.Message)"
-                        OriginalMB = 0
-                        NewMB      = 0
-                        Ratio      = 0
-                    }
-                }
-
-                $originalSize = Get-FileSizeMB -Path $inputPath
-                $newSize = Get-FileSizeMB -Path $outputPath
-                return [pscustomobject]@{
-                    File       = $File.Name
-                    Ok         = $true
-                    Skipped    = $false
-                    Reason     = ''
-                    OriginalMB = $originalSize
-                    NewMB      = $newSize
-                    Ratio      = if ($originalSize -gt 0) { [math]::Round(($newSize / $originalSize) * 100, 1) } else { 0 }
-                }
-            }
-
-            if (Test-Path -LiteralPath $outputTempPath) {
-                Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-            }
-            $reason = if ($exitCode -ne 0) { "ffmpeg exit $exitCode" } else { 'missing temp output' }
-            return [pscustomobject]@{
-                File       = $File.Name
-                Ok         = $false
-                Skipped    = $false
-                Reason     = $reason
-                OriginalMB = 0
-                NewMB      = 0
-                Ratio      = 0
-            }
-        } catch {
-            if (Test-Path -LiteralPath $outputTempPath) {
-                Remove-Item -LiteralPath $outputTempPath -ErrorAction SilentlyContinue
-            }
-            return [pscustomobject]@{
-                File       = $File.Name
-                Ok         = $false
-                Skipped    = $false
-                Reason     = $_.Exception.Message
-                OriginalMB = 0
-                NewMB      = 0
-                Ratio      = 0
-            }
-        }
-    }
-
+    # Resolve the destination directory once, then filter work through ShouldProcess.
+    $outputDirAbs = Get-ConvertToVvcResolvedOutputDir -OutputDir $OutputDir
     $targetFiles = @()
-    foreach ($file in $files) {
+
+    foreach ($file in $inputFiles) {
         $baseName = [IO.Path]::GetFileNameWithoutExtension($file.Name)
         $outName = "${baseName}${Suffix}.mkv"
         $outPath = Join-Path -Path $outputDirAbs -ChildPath $outName
+
         if ($PSCmdlet.ShouldProcess($file.FullName, "Convert to VVC -> $outPath")) {
             $targetFiles += $file
         }
@@ -668,37 +223,29 @@ function Convert-ToVvc {
         return @()
     }
 
-    $results =
-    if ($MaxParallel -le 1) {
-        $i = 0
-        $acc = @()
-        foreach ($f in $targetFiles) {
-            $i++
-            Write-Verbose "[$i/$($targetFiles.Count)] Processing: $($f.Name)"
-            $acc += (& $processOne $f $Suffix $outputDirAbs $QP $Preset $Overwrite $ffmpegPath $Verify $MaxDrift)
-        }
-        $acc
-    } else {
-        $throttle = [math]::Max(1, $MaxParallel)
-        $targetFiles | ForEach-Object -Parallel $processOne `
-            -ThrottleLimit $throttle `
-            -ArgumentList $Suffix, $outputDirAbs, $QP, $Preset, $Overwrite, $ffmpegPath, $Verify, $MaxDrift
+    # Build the worker payload used by sequential and parallel execution paths.
+    $worker = Get-ConvertToVvcWorkerScriptBlock
+    $workerArgParams = @{
+        Suffix     = $Suffix
+        OutputDir  = $outputDirAbs
+        Qp         = $QP
+        Preset     = $Preset
+        Overwrite  = $Overwrite.IsPresent
+        FfmpegPath = $prep.ToolPaths.FfmpegPath
+        Verify     = $Verify
+        MaxDrift   = $MaxDrift
     }
+    $workerArgs = Get-ConvertToVvcWorkerArguments @workerArgParams
 
-    $results = @($results)
-    $resultItems = @(
-        $results | Where-Object {
-            $_ -and
-            $_.PSObject -and
-            $_.PSObject.Properties.Match('Ok').Count -gt 0 -and
-            $_.PSObject.Properties.Match('Skipped').Count -gt 0
-        }
-    )
+    # Invoke the worker and let the completion helper emit the final result stream.
+    $invokeParams = @{
+        TargetFiles     = $targetFiles
+        Worker          = $worker
+        WorkerArguments = $workerArgs
+        MaxParallel     = $MaxParallel
+        Cmdlet          = $PSCmdlet
+    }
+    $results = @(Invoke-ConvertToVvcWorker @invokeParams)
 
-    $ok = @($resultItems | Where-Object { $_.Ok }).Count
-    $skipped = @($resultItems | Where-Object { $_.Skipped }).Count
-    $errors = @($resultItems | Where-Object { -not $_.Ok -and -not $_.Skipped }).Count
-
-    Write-Verbose "Completed. Converted: $ok | Skipped: $skipped | Errors: $errors"
-    return $results
+    Complete-ConvertToVvc -Results @($results) -Cmdlet $PSCmdlet
 }
