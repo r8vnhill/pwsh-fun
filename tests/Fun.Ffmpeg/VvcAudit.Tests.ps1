@@ -2,42 +2,11 @@
 #Requires -Modules Pester
 
 BeforeAll {
-    $script:originalPath = $env:PATH
-    $script:mockDir = Join-Path $TestDrive 'ffmpeg-audit-mocks'
-    New-Item -ItemType Directory -Path $script:mockDir -Force | Out-Null
-
-    Set-Content -LiteralPath (Join-Path $script:mockDir 'ffprobe.ps1') -Value @'
-param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-
-$target = $Args[-1]
-$name = [System.IO.Path]::GetFileName($target)
-
-switch ($name) {
-    'episode01.mkv' { 'h264'; '1440.0'; exit 0 }
-    'episode01_vvc.mkv' { 'vvc'; '1439.6'; exit 0 }
-    'episode02.mkv' { 'EBML header parsing failed'; exit 1 }
-    'episode02_vvc.mkv' { 'vvc'; '1440.0'; exit 0 }
-    'episode03.mkv' { 'h264'; '1440.0'; exit 0 }
-    'episode03_vvc.mkv' { 'vvc'; '1440.0'; exit 0 }
-    'episode04.mkv' { 'h264'; '1440.0'; exit 0 }
-    'episode04_vvc.mkv' { 'vvc'; '1440.0'; exit 0 }
-    'episode05.mkv' { 'h264'; '1440.0'; exit 0 }
-    default { 'unexpected ffprobe input'; exit 1 }
-}
-'@
-
-    Set-Content -LiteralPath (Join-Path $script:mockDir 'ffmpeg.ps1') -Value @'
-param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-
-if ($Args -contains '-encoders') {
-    ' V..... libvvenc            H.266 / VVC'
-    exit 0
-}
-
-exit 0
-'@
-
-    $env:PATH = "$script:mockDir$([IO.Path]::PathSeparator)$env:PATH"
+    . (Join-Path $PSScriptRoot 'Support\FakeMediaTools.ps1')
+    $script:toolSupport = Initialize-FakeMediaToolSupport `
+        -TestDrivePath $TestDrive `
+        -MockDirName 'ffmpeg-audit-mocks'
+    Enable-FakeMediaToolSupport -Context $script:toolSupport
     Import-Module -Name (Join-Path $PSScriptRoot '..\..\modules\Fun.Ffmpeg\Fun.Ffmpeg.psd1') -Force -ErrorAction Stop
 
     function New-VvcAuditTestRoot {
@@ -48,154 +17,209 @@ exit 0
 }
 
 AfterAll {
-    $env:PATH = $script:originalPath
+    Restore-FakeMediaToolSupport -Context $script:toolSupport
 }
 
-Describe 'VvcAudit types' {
-    It 'uses enum-backed inspection reasons and nullable durations' {
-        InModuleScope Fun.Ffmpeg {
-            $inspection = [VvcMediaInspection]::new(
-                'C:\videos\episode01.mkv',
-                $true,
-                12.345,
-                $false,
-                $true,
-                [VvcInspectionReason]::None,
-                'h264',
-                1440.0,
-                $null
-            )
-
-            $inspection.Reason.GetType().Name | Should -Be 'VvcInspectionReason'
-            $inspection.DurationSec.GetType().Name | Should -Be 'Double'
-            $inspection.SizeMB | Should -Be 12.34
+Describe 'VvcAudit' {
+    BeforeEach {
+        Reset-FakeMediaToolEnvironment -Context $script:toolSupport
+        Set-FakeFfprobeScenarios -Scenarios @{
+            'episode01.mkv' = @{
+                CodecName  = 'h264'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
+            'episode01_vvc.mkv' = @{
+                CodecName  = 'vvc'
+                Duration   = '1439.6'
+                FormatName = 'matroska,webm'
+            }
+            'episode02.mkv' = @{
+                ProbeFailMessage = 'EBML header parsing failed'
+            }
+            'episode02_vvc.mkv' = @{
+                CodecName  = 'vvc'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
+            'episode03.mkv' = @{
+                CodecName  = 'h264'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
+            'episode03_vvc.mkv' = @{
+                CodecName  = 'vvc'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
+            'episode04.mkv' = @{
+                CodecName  = 'h264'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
+            'episode04_vvc.mkv' = @{
+                CodecName  = 'vvc'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
+            'episode05.mkv' = @{
+                CodecName  = 'h264'
+                Duration   = '1440.0'
+                FormatName = 'matroska,webm'
+            }
         }
+        Set-FakeFfmpegBehavior -ExitCode 0
     }
 
-    It 'rejects impossible inspection states' {
-        InModuleScope Fun.Ffmpeg {
-            {
-                [VvcMediaInspection]::new(
-                    'C:\videos\missing.mkv',
-                    $false,
-                    1.0,
+    AfterEach {
+        Reset-FakeMediaToolEnvironment -Context $script:toolSupport
+    }
+
+    Context 'types' {
+        It 'uses enum-backed inspection reasons and nullable durations' {
+            InModuleScope Fun.Ffmpeg {
+                $inspection = [VvcMediaInspection]::new(
+                    'C:\videos\episode01.mkv',
+                    $true,
+                    12.345,
                     $false,
                     $true,
                     [VvcInspectionReason]::None,
-                    '',
-                    $null,
+                    'h264',
+                    1440.0,
                     $null
                 )
-            } | Should -Throw
 
-            {
-                [VvcMediaInspection]::new(
-                    'C:\videos\negative.mkv',
+                $inspection.Reason.GetType().Name | Should -Be 'VvcInspectionReason'
+                $inspection.DurationSec.GetType().Name | Should -Be 'Double'
+                $inspection.SizeMB | Should -Be 12.34
+            }
+        }
+
+        It 'rejects impossible inspection states' {
+            InModuleScope Fun.Ffmpeg {
+                {
+                    [VvcMediaInspection]::new(
+                        'C:\videos\missing.mkv',
+                        $false,
+                        1.0,
+                        $false,
+                        $true,
+                        [VvcInspectionReason]::None,
+                        '',
+                        $null,
+                        $null
+                    )
+                } | Should -Throw
+
+                {
+                    [VvcMediaInspection]::new(
+                        'C:\videos\negative.mkv',
+                        $true,
+                        1.0,
+                        $false,
+                        $false,
+                        [VvcInspectionReason]::ProbeFailed,
+                        '',
+                        -1.0,
+                        $null
+                    )
+                } | Should -Throw
+            }
+        }
+
+        It 'stores composed inspections and preserves flattened compatibility accessors' {
+            InModuleScope Fun.Ffmpeg {
+                $original = [VvcMediaInspection]::new(
+                    'C:\videos\episode01.mkv',
                     $true,
-                    1.0,
+                    100.0,
                     $false,
-                    $false,
-                    [VvcInspectionReason]::ProbeFailed,
-                    '',
-                    -1.0,
+                    $true,
+                    [VvcInspectionReason]::None,
+                    'h264',
+                    1440.0,
                     $null
                 )
-            } | Should -Throw
-        }
-    }
+                $vvc = [VvcMediaInspection]::new(
+                    'C:\videos\episode01_vvc.mkv',
+                    $true,
+                    40.0,
+                    $false,
+                    $true,
+                    [VvcInspectionReason]::None,
+                    'vvc',
+                    1439.6,
+                    $null
+                )
 
-    It 'stores composed inspections and preserves flattened compatibility accessors' {
-        InModuleScope Fun.Ffmpeg {
-            $original = [VvcMediaInspection]::new(
-                'C:\videos\episode01.mkv',
-                $true,
-                100.0,
-                $false,
-                $true,
-                [VvcInspectionReason]::None,
-                'h264',
-                1440.0,
-                $null
-            )
-            $vvc = [VvcMediaInspection]::new(
-                'C:\videos\episode01_vvc.mkv',
-                $true,
-                40.0,
-                $false,
-                $true,
-                [VvcInspectionReason]::None,
-                'vvc',
-                1439.6,
-                $null
-            )
-
-            $audit = [VvcAuditResult]::new(
-                'episode01',
-                'C:\videos',
-                [VvcAuditStatus]::OriginalValidAndVvcValid,
-                $original,
-                $vvc,
-                0.4,
-                $false,
-                @(),
-                $true,
-                $false
-            )
-
-            $audit.Status.GetType().Name | Should -Be 'VvcAuditStatus'
-            $audit.Original.GetType().Name | Should -Be 'VvcMediaInspection'
-            $audit.Vvc.GetType().Name | Should -Be 'VvcMediaInspection'
-            $audit.OriginalPath | Should -Be 'C:\videos\episode01.mkv'
-            $audit.VvcValid | Should -BeTrue
-            $audit.OriginalReason.ToString() | Should -Be 'None'
-        }
-    }
-
-    It 'rejects impossible audit combinations' {
-        InModuleScope Fun.Ffmpeg {
-            $original = [VvcMediaInspection]::new(
-                'C:\videos\episode01.mkv',
-                $true,
-                100.0,
-                $false,
-                $true,
-                [VvcInspectionReason]::None,
-                'h264',
-                1440.0,
-                $null
-            )
-            $invalidVvc = [VvcMediaInspection]::new(
-                'C:\videos\episode01_vvc.mkv',
-                $true,
-                40.0,
-                $false,
-                $false,
-                [VvcInspectionReason]::DecodeFailed,
-                'vvc',
-                1439.6,
-                $false
-            )
-
-            {
-                [VvcAuditResult]::new(
+                $audit = [VvcAuditResult]::new(
                     'episode01',
                     'C:\videos',
                     [VvcAuditStatus]::OriginalValidAndVvcValid,
                     $original,
-                    $invalidVvc,
+                    $vvc,
                     0.4,
                     $false,
                     @(),
                     $true,
                     $false
                 )
-            } | Should -Throw
+
+                $audit.Status.GetType().Name | Should -Be 'VvcAuditStatus'
+                $audit.Original.GetType().Name | Should -Be 'VvcMediaInspection'
+                $audit.Vvc.GetType().Name | Should -Be 'VvcMediaInspection'
+                $audit.OriginalPath | Should -Be 'C:\videos\episode01.mkv'
+                $audit.VvcValid | Should -BeTrue
+                $audit.OriginalReason.ToString() | Should -Be 'None'
+            }
+        }
+
+        It 'rejects impossible audit combinations' {
+            InModuleScope Fun.Ffmpeg {
+                $original = [VvcMediaInspection]::new(
+                    'C:\videos\episode01.mkv',
+                    $true,
+                    100.0,
+                    $false,
+                    $true,
+                    [VvcInspectionReason]::None,
+                    'h264',
+                    1440.0,
+                    $null
+                )
+                $invalidVvc = [VvcMediaInspection]::new(
+                    'C:\videos\episode01_vvc.mkv',
+                    $true,
+                    40.0,
+                    $false,
+                    $false,
+                    [VvcInspectionReason]::DecodeFailed,
+                    'vvc',
+                    1439.6,
+                    $false
+                )
+
+                {
+                    [VvcAuditResult]::new(
+                        'episode01',
+                        'C:\videos',
+                        [VvcAuditStatus]::OriginalValidAndVvcValid,
+                        $original,
+                        $invalidVvc,
+                        0.4,
+                        $false,
+                        @(),
+                        $true,
+                        $false
+                    )
+                } | Should -Throw
+            }
         }
     }
-}
 
-Describe 'Get-VvcAudit' {
-    It 'classifies validated pairs as safe-to-delete originals' {
+    Context 'Get-VvcAudit' {
+        It 'classifies validated pairs as safe-to-delete originals' {
         $root = New-VvcAuditTestRoot
         $originalPath = Join-Path $root 'episode01.mkv'
         $vvcPath = Join-Path $root 'episode01_vvc.mkv'
@@ -214,7 +238,7 @@ Describe 'Get-VvcAudit' {
         $result[0].DurationDriftSec | Should -BeLessThan 1.5
     }
 
-    It 'classifies corrupt originals with valid vvc outputs' {
+        It 'classifies corrupt originals with valid vvc outputs' {
         $root = New-VvcAuditTestRoot
         $originalPath = Join-Path $root 'episode02.mkv'
         $vvcPath = Join-Path $root 'episode02_vvc.mkv'
@@ -231,7 +255,7 @@ Describe 'Get-VvcAudit' {
         $result[0].SafeToDeleteOriginal | Should -BeFalse
     }
 
-    It 'flags tiny or invalid vvc outputs as suspicious' {
+        It 'flags tiny or invalid vvc outputs as suspicious' {
         $root = New-VvcAuditTestRoot
         $originalPath = Join-Path $root 'episode03.mkv'
         $vvcPath = Join-Path $root 'episode03_vvc.mkv'
@@ -246,10 +270,10 @@ Describe 'Get-VvcAudit' {
         $result[0].SuspiciousVvc | Should -BeTrue
         $result[0].SafeToDeleteOriginal | Should -BeFalse
     }
-}
+    }
 
-Describe 'Remove-ValidatedVvcOriginal' {
-    It 'emits structured results for all audited items and removes only safe originals' {
+    Context 'Remove-ValidatedVvcOriginal' {
+        It 'emits structured results for all audited items and removes only safe originals' {
         $root = New-VvcAuditTestRoot
         $safeOriginalPath = Join-Path $root 'episode04.mkv'
         $safeVvcPath = Join-Path $root 'episode04_vvc.mkv'
@@ -278,7 +302,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
         (Test-Path -LiteralPath $unsafeOriginalPath) | Should -BeTrue
     }
 
-    It 'returns would-remove results under WhatIf without deleting files' {
+        It 'returns would-remove results under WhatIf without deleting files' {
         $root = New-VvcAuditTestRoot
         $safeOriginalPath = Join-Path $root 'episode04.mkv'
         $safeVvcPath = Join-Path $root 'episode04_vvc.mkv'
@@ -295,7 +319,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
         (Test-Path -LiteralPath $safeOriginalPath) | Should -BeTrue
     }
 
-    It 'emits a summary object when IncludeSummary is specified' {
+        It 'emits a summary object when IncludeSummary is specified' {
         $root = New-VvcAuditTestRoot
         $safeOriginalPath = Join-Path $root 'episode04.mkv'
         $safeVvcPath = Join-Path $root 'episode04_vvc.mkv'
@@ -318,9 +342,9 @@ Describe 'Remove-ValidatedVvcOriginal' {
         $summary.TotalReclaimedMB | Should -Be ($result | Where-Object Status -eq 'Removed' | Select-Object -ExpandProperty ReclaimedMB)
     }
 
-    Context 'with mocks' {
-        BeforeEach {
-            Mock Get-VvcAudit {
+        Context 'with mocks' {
+            BeforeEach {
+                Mock Get-VvcAudit {
                 @(
                     [pscustomobject]@{
                         EpisodeKey           = 'safe'
@@ -353,10 +377,10 @@ Describe 'Remove-ValidatedVvcOriginal' {
                         SafeToDeleteOriginal = $true
                     }
                 )
-            } -ModuleName Fun.Ffmpeg
-        }
+                } -ModuleName Fun.Ffmpeg
+            }
 
-        It 'continues on remove failures and reports failed results' {
+            It 'continues on remove failures and reports failed results' {
             Mock Remove-Item {
                 if ($LiteralPath -eq 'C:\videos\safe.mkv') {
                     throw 'simulated delete failure'
@@ -376,7 +400,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             Assert-MockCalled Remove-Item -Times 1 -ModuleName Fun.Ffmpeg -Exactly
         }
 
-        It 'stops after reporting a failed result when StopOnError is set' {
+            It 'stops after reporting a failed result when StopOnError is set' {
             Mock Remove-Item {
                 throw 'simulated delete failure'
             } -ModuleName Fun.Ffmpeg
@@ -385,7 +409,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             Assert-MockCalled Remove-Item -Times 1 -ModuleName Fun.Ffmpeg -Exactly
         }
 
-        It 'forwards recurse verify suffix and normalized extensions to Get-VvcAudit' {
+            It 'forwards recurse verify suffix and normalized extensions to Get-VvcAudit' {
             Mock Remove-Item {} -ModuleName Fun.Ffmpeg
 
             $null = Remove-ValidatedVvcOriginal -InputDir 'C:\videos' -Suffix '__encoded' -Extensions 'mkv', '.mp4' -Verify strict -Recurse -Confirm:$false
@@ -401,7 +425,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
-        It 'supports pipeline input for InputDir' {
+            It 'supports pipeline input for InputDir' {
             Mock Remove-Item {} -ModuleName Fun.Ffmpeg
 
             $null = 'C:\videos' | Remove-ValidatedVvcOriginal -Confirm:$false
@@ -411,7 +435,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
-        It 'normalizes extensions to lowercase unique dotted values' {
+            It 'normalizes extensions to lowercase unique dotted values' {
             Mock Remove-Item {} -ModuleName Fun.Ffmpeg
 
             $null = Remove-ValidatedVvcOriginal -InputDir 'C:\videos' -Extensions 'mkv', '.MKV', ' Mp4 ', '.mp4' -Confirm:$false
@@ -423,7 +447,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
-        It 'fails when extension normalization yields an empty set' {
+            It 'fails when extension normalization yields an empty set' {
             InModuleScope Fun.Ffmpeg {
                 try {
                     throw [VvcRemovalConfigurationException]::new(
@@ -435,7 +459,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
-        It 'maintains key safety properties across randomized audit items' {
+            It 'maintains key safety properties across randomized audit items' {
             $items = for ($i = 0; $i -lt 25; $i++) {
                 $originalPath = if ($i % 5 -eq 0) { '' } else { "C:\videos\ep$i.mkv" }
                 $safe = ($i % 2 -eq 0)
@@ -478,7 +502,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             Assert-MockCalled Remove-Item -Times $removed.Count -ModuleName Fun.Ffmpeg -Exactly
         }
 
-        It 'produces idempotent non-empty normalized extensions' {
+            It 'produces idempotent non-empty normalized extensions' {
             InModuleScope Fun.Ffmpeg {
                 $once = ConvertTo-VvcRemovalExtensions -Extensions 'MKV', 'mkv', '.Mp4', '  avi '
                 $twice = ConvertTo-VvcRemovalExtensions -Extensions $once
@@ -493,7 +517,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
-        It 'uses domain invariant exceptions for invalid result construction' {
+            It 'uses domain invariant exceptions for invalid result construction' {
             InModuleScope Fun.Ffmpeg {
                 {
                     [VvcRemovalResult]::new(
@@ -512,7 +536,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
-        It 'uses domain execution exceptions for strict-mode stop behavior' {
+            It 'uses domain execution exceptions for strict-mode stop behavior' {
             Mock Remove-Item {
                 throw 'simulated delete failure'
             } -ModuleName Fun.Ffmpeg
@@ -522,6 +546,7 @@ Describe 'Remove-ValidatedVvcOriginal' {
                 throw 'Expected Remove-ValidatedVvcOriginal to fail.'
             } catch {
                 $_.Exception.GetType().Name | Should -Be 'VvcRemovalExecutionException'
+            }
             }
         }
     }
