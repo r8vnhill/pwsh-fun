@@ -40,14 +40,13 @@ function Rename-StandardMedia {
         [Parameter(ParameterSetName = 'Game')]
         [switch]    $Game,
 
-        [Parameter(Mandatory, ParameterSetName = 'Document')]
-        [Parameter(Mandatory, ParameterSetName = 'Anime')]
-        [Parameter(Mandatory, ParameterSetName = 'Comic')]
-        [Parameter(Mandatory, ParameterSetName = 'Movie')]
-        [Parameter(Mandatory, ParameterSetName = 'Series')]
-        [Parameter(Mandatory, ParameterSetName = 'Game')]
+        [Parameter(ParameterSetName = 'Document')]
+        [Parameter(ParameterSetName = 'Anime')]
+        [Parameter(ParameterSetName = 'Comic')]
+        [Parameter(ParameterSetName = 'Movie')]
+        [Parameter(ParameterSetName = 'Series')]
+        [Parameter(ParameterSetName = 'Game')]
         [Alias('t')]
-        [ValidateNotNullOrEmpty()]
         [string]    $Title,
 
         [Parameter(ParameterSetName = 'Document')]

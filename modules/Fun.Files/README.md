@@ -40,6 +40,7 @@
       - [Examples](#examples)
         - [Example 1](#example-1)
         - [Example 2](#example-2)
+    - [`Remove-VivaldiOldApplicationVersions`](#remove-vivaldioldapplicationversions)
   - [📄 License](#-license)
   - [👨‍💻 Author](#-author)
   - [📬 Contributing](#-contributing)
@@ -342,6 +343,27 @@ Creates and enters the `2025` folder under `Reports`.
 
 >[!tip] Alias
 > `mdcd`
+
+### `Remove-VivaldiOldApplicationVersions`
+
+Safely removes old version folders from `AppData\Local\Vivaldi\Application` while keeping the newest one.
+The command only operates under `...\Vivaldi\Application`, supports `-WhatIf`/`-Confirm`, and can send removals to Recycle Bin.
+
+#### Basic Usage
+
+```powershell
+Remove-VivaldiOldApplicationVersions -UseRecycleBin -WhatIf -Verbose
+```
+
+Simulates which old version folders would be removed.
+
+#### Apply Cleanup
+
+```powershell
+Remove-VivaldiOldApplicationVersions -UseRecycleBin -Confirm
+```
+
+Executes cleanup and moves old version directories to Recycle Bin.
 
 ## 📄 License
 

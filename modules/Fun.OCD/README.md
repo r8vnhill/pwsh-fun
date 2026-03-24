@@ -38,6 +38,37 @@ Some don’t.
 Some are just eldritch incantations with `-WhatIf`.  
 You’ve been warned.
 
+## 📦 Reclaiming space with `Move-AndLinkItem`
+
+`Move-AndLinkItem` is useful when `C:` is filling up with development tooling caches and local package stores.
+
+If you want to push the usual offenders to `B:`, create a destination folder first:
+
+```powershell
+New-Item -ItemType Directory -Path 'B:\Dev-Cache' -Force
+```
+
+Then move them with junctions:
+
+```powershell
+$paths = @(
+    'C:\Users\usuario\AppData\Local\ms-playwright',
+    'C:\Users\usuario\AppData\Local\pnpm',
+    'C:\Users\usuario\AppData\Local\pnpm-cache',
+    'C:\Users\usuario\AppData\Local\uv',
+    'C:\Users\usuario\AppData\Local\Coursier',
+    'C:\Users\usuario\AppData\Local\cabal'
+)
+
+foreach ($path in $paths) {
+    if (Test-Path -LiteralPath $path) {
+        Move-AndLinkItem -PathToSymlink $path -PathToContent 'B:\Dev-Cache' -UseJunction
+    }
+}
+```
+
+That leaves the original paths in place as junctions, so your tools keep working while the actual data lives on `B:`.
+
 ## ❓ Why this exists
 
 Because I have OCD.  

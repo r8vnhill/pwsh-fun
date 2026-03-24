@@ -20,7 +20,8 @@
         'Copy-FileContents',
         'Invoke-FileTransform',
         'Compress-FilteredFiles',
-        'New-AndEnterDirectory'
+        'New-AndEnterDirectory',
+        'Remove-VivaldiOldApplicationVersions'
     )
 
     # No cmdlets, variables, or aliases are exported

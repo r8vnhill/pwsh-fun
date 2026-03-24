@@ -65,8 +65,12 @@ function Convert-ToVvc {
     #>
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param(
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Directory')]
         [string]$InputDir = '.',
+
+        [Parameter(Mandatory, ParameterSetName = 'LiteralPath', ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        [Alias('FullName', 'PSPath', 'Path', 'OriginalPath')]
+        [string[]]$LiteralPath,
 
         [Parameter()]
         [string]$OutputDir = '.\vvc_out',
@@ -132,6 +136,36 @@ function Convert-ToVvc {
             return [double]::Parse(($duration | Out-String).Trim(), [Globalization.CultureInfo]::InvariantCulture)
         } catch {
             return -1
+        }
+    }
+
+    function Get-InputProbeError {
+        param([string]$Path)
+
+        try {
+            $item = Get-Item -LiteralPath $Path -ErrorAction Stop
+            if ($item.Length -le 0) {
+                return 'input file is empty.'
+            }
+        } catch {
+            return $_.Exception.Message
+        }
+
+        try {
+            $probeOutput = @(ffprobe -v error -show_entries format=format_name `
+                -of default=nw=1:nk=1 -- "$Path" 2>&1)
+            if ($LASTEXITCODE -eq 0) {
+                return ''
+            }
+
+            $probeMessage = ($probeOutput | Out-String).Trim()
+            if ([string]::IsNullOrWhiteSpace($probeMessage)) {
+                return 'ffprobe could not read the input container.'
+            }
+
+            return $probeMessage
+        } catch {
+            return $_.Exception.Message
         }
     }
 
@@ -235,19 +269,43 @@ function Convert-ToVvc {
     $extSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $Extensions | ForEach-Object { $null = $extSet.Add($_) }
 
-    $gciParams = @{ Path = $InputDir; File = $true; ErrorAction = 'Stop' }
-    if ($Recurse.IsPresent) {
-        $gciParams.Recurse = $true
+    $files = @()
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        $resolvedFiles = foreach ($path in $LiteralPath) {
+            if ([string]::IsNullOrWhiteSpace($path)) {
+                continue
+            }
+
+            $resolvedPath = Resolve-Path -LiteralPath $path -ErrorAction Stop
+            foreach ($entry in @($resolvedPath)) {
+                $item = Get-Item -LiteralPath $entry.ProviderPath -ErrorAction Stop
+                if ($item -is [System.IO.DirectoryInfo]) {
+                    continue
+                }
+                if ($extSet.Contains($item.Extension)) {
+                    $item
+                }
+            }
+        }
+
+        $files = @($resolvedFiles | Sort-Object FullName -Unique)
+    } else {
+        $gciParams = @{ Path = $InputDir; File = $true; ErrorAction = 'Stop' }
+        if ($Recurse.IsPresent) {
+            $gciParams.Recurse = $true
+        }
+        $files = @(Get-ChildItem @gciParams | Where-Object { $extSet.Contains($_.Extension) })
     }
-    $files = @(Get-ChildItem @gciParams | Where-Object { $extSet.Contains($_.Extension) })
 
     if ($files.Count -eq 0) {
-        Write-Verbose "No matching videos found in '$InputDir' with extensions: $($Extensions -join ', ')."
+        $sourceLabel = if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') { 'explicit paths' } else { "'$InputDir'" }
+        Write-Verbose "No matching videos found in $sourceLabel with extensions: $($Extensions -join ', ')."
         return @()
     }
 
     $ffmpegPath = $ffmpeg.Path
-    $outputDirAbs = (Resolve-Path -LiteralPath $OutputDir).Path
+    $resolvedOutputDir = Resolve-Path -LiteralPath $OutputDir -ErrorAction Stop
+    $outputDirAbs = if ($resolvedOutputDir.ProviderPath) { $resolvedOutputDir.ProviderPath } else { $resolvedOutputDir.Path }
 
     $processOne = {
         param(
@@ -291,6 +349,36 @@ function Convert-ToVvc {
                 return [double]::Parse(($duration | Out-String).Trim(), [Globalization.CultureInfo]::InvariantCulture)
             } catch {
                 return -1
+            }
+        }
+
+        function Get-InputProbeError {
+            param([string]$Path)
+
+            try {
+                $item = Get-Item -LiteralPath $Path -ErrorAction Stop
+                if ($item.Length -le 0) {
+                    return 'input file is empty.'
+                }
+            } catch {
+                return $_.Exception.Message
+            }
+
+            try {
+                $probeOutput = @(ffprobe -v error -show_entries format=format_name `
+                    -of default=nw=1:nk=1 -- "$Path" 2>&1)
+                if ($LASTEXITCODE -eq 0) {
+                    return ''
+                }
+
+                $probeMessage = ($probeOutput | Out-String).Trim()
+                if ([string]::IsNullOrWhiteSpace($probeMessage)) {
+                    return 'ffprobe could not read the input container.'
+                }
+
+                return $probeMessage
+            } catch {
+                return $_.Exception.Message
             }
         }
 
@@ -379,6 +467,20 @@ function Convert-ToVvc {
         $outputName = "${baseName}${SuffixValue}.mkv"
         $outputPath = Join-Path -Path $OutputDirValue -ChildPath $outputName
         $outputTempPath = New-OutputTempPath -FinalPath $outputPath
+        $inputProbeError = Get-InputProbeError -Path $inputPath
+
+        if ($inputProbeError) {
+            $originalSize = Get-FileSizeMB -Path $inputPath
+            return [pscustomobject]@{
+                File       = $File.Name
+                Ok         = $false
+                Skipped    = $false
+                Reason     = "invalid input: $inputProbeError"
+                OriginalMB = $originalSize
+                NewMB      = 0
+                Ratio      = 0
+            }
+        }
 
         if (Test-Path -LiteralPath $outputTempPath) {
             Remove-Item -LiteralPath $outputTempPath -Force -ErrorAction SilentlyContinue
@@ -583,11 +685,20 @@ function Convert-ToVvc {
             -ArgumentList $Suffix, $outputDirAbs, $QP, $Preset, $Overwrite, $ffmpegPath, $Verify, $MaxDrift
     }
 
-    $ok = ($results | Where-Object { $_.Ok }).Count
-    $skipped = ($results | Where-Object { $_.Skipped }).Count
-    $errors = ($results | Where-Object { -not $_.Ok -and -not $_.Skipped }).Count
+    $results = @($results)
+    $resultItems = @(
+        $results | Where-Object {
+            $_ -and
+            $_.PSObject -and
+            $_.PSObject.Properties.Match('Ok').Count -gt 0 -and
+            $_.PSObject.Properties.Match('Skipped').Count -gt 0
+        }
+    )
+
+    $ok = @($resultItems | Where-Object { $_.Ok }).Count
+    $skipped = @($resultItems | Where-Object { $_.Skipped }).Count
+    $errors = @($resultItems | Where-Object { -not $_.Ok -and -not $_.Skipped }).Count
 
     Write-Verbose "Completed. Converted: $ok | Skipped: $skipped | Errors: $errors"
     return $results
 }
-

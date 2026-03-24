@@ -15,7 +15,9 @@
 
     # Explicit list of exported functions
     FunctionsToExport = @(
-        'Convert-ToVvc'
+        'Convert-ToVvc',
+        'Get-VvcAudit',
+        'Remove-ValidatedVvcOriginal'
     )
 
     # No cmdlets, variables, or aliases are exported
