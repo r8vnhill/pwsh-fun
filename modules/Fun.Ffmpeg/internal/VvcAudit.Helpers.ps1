@@ -1,4 +1,4 @@
-using module .\VvcAudit.Types.psm1
+using module .\VvcAudit.Models.psm1
 
 Set-StrictMode -Version Latest
 
@@ -57,10 +57,9 @@ function Get-VvcMediaInspection {
     $item = Get-Item -LiteralPath $Path -ErrorAction Stop
     $sizeMB = [math]::Round($item.Length / 1MB, 2)
     $isEmpty = ($item.Length -le 0)
-    $valid = $false
-    $reason = ''
+    $reason = [VvcInspectionReason]::None
     $videoCodec = ''
-    $durationSec = -1.0
+    [Nullable[double]]$durationSec = $null
     $decodable = $null
 
     if ($isEmpty) {
@@ -70,9 +69,9 @@ function Get-VvcMediaInspection {
             $sizeMB,
             $true,
             $false,
-            'input file is empty.',
+            [VvcInspectionReason]::EmptyFile,
             '',
-            -1.0,
+            $null,
             $null
         )
     }
@@ -90,20 +89,15 @@ function Get-VvcMediaInspection {
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
         $probeMessage = ($probeOutput | Out-String).Trim()
-        $reason = if ([string]::IsNullOrWhiteSpace($probeMessage)) {
-            'ffprobe could not read the input container.'
-        } else {
-            $probeMessage
-        }
         return [VvcMediaInspection]::new(
             $item.FullName,
             $true,
             $sizeMB,
             $false,
             $false,
-            $reason,
+            [VvcInspectionReason]::ProbeFailed,
             '',
-            -1.0,
+            $null,
             $null
         )
     }
@@ -120,7 +114,7 @@ function Get-VvcMediaInspection {
                 [Globalization.CultureInfo]::InvariantCulture
             )
         } catch {
-            $durationSec = -1.0
+            $durationSec = $null
         }
     }
 
@@ -134,7 +128,7 @@ function Get-VvcMediaInspection {
                 $sizeMB,
                 $false,
                 $false,
-                'decode test failed',
+                [VvcInspectionReason]::DecodeFailed,
                 $videoCodec,
                 $durationSec,
                 $decodable
@@ -148,7 +142,7 @@ function Get-VvcMediaInspection {
         $sizeMB,
         $false,
         $true,
-        '',
+        [VvcInspectionReason]::None,
         $videoCodec,
         $durationSec,
         $decodable

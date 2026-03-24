@@ -1,4 +1,4 @@
-using module ..\internal\VvcAudit.Types.psm1
+using module ..\internal\VvcAudit.Models.psm1
 
 function Get-VvcAudit {
     <#
@@ -140,19 +140,45 @@ function Get-VvcAudit {
         $vvcInfo = $null
 
         if ($group.Original) {
-            $originalInfo = Get-VvcMediaInspection -Path $group.Original.FullName -FfprobePath $tools.FfprobePath -FfmpegPath $tools.FfmpegPath -Verify $Verify
+            $inspectParams = @{
+                Path        = $group.Original.FullName
+                FfprobePath = $tools.FfprobePath
+                FfmpegPath  = $tools.FfmpegPath
+                Verify      = $Verify
+            }
+            $originalInfo = Get-VvcMediaInspection @inspectParams
         }
 
         if ($group.Vvc) {
-            $vvcInfo = Get-VvcMediaInspection -Path $group.Vvc.FullName -FfprobePath $tools.FfprobePath -FfmpegPath $tools.FfmpegPath -Verify $Verify
+            $inspectParams = @{
+                Path        = $group.Vvc.FullName
+                FfprobePath = $tools.FfprobePath
+                FfmpegPath  = $tools.FfmpegPath
+                Verify      = $Verify
+            }
+            $vvcInfo = Get-VvcMediaInspection @inspectParams
             if ($vvcInfo.Valid -and -not (Test-VvcCodecName -CodecName $vvcInfo.VideoCodec)) {
-                $vvcInfo.Valid = $false
-                $vvcInfo.Reason = "unexpected codec: '$($vvcInfo.VideoCodec)'"
+                $vvcInfo = [VvcMediaInspection]::new(
+                    $vvcInfo.Path,
+                    $vvcInfo.Exists,
+                    $vvcInfo.SizeMB,
+                    $vvcInfo.IsEmpty,
+                    $false,
+                    [VvcInspectionReason]::UnexpectedCodec,
+                    $vvcInfo.VideoCodec,
+                    $vvcInfo.DurationSec,
+                    $vvcInfo.Decodable
+                )
             }
         }
 
         $durationDriftSec = $null
-        if ($originalInfo -and $vvcInfo -and $originalInfo.DurationSec -gt 0 -and $vvcInfo.DurationSec -gt 0) {
+        if (
+            $originalInfo -and
+            $vvcInfo -and
+            $null -ne $originalInfo.DurationSec -and
+            $null -ne $vvcInfo.DurationSec
+        ) {
             $durationDriftSec = [math]::Abs($originalInfo.DurationSec - $vvcInfo.DurationSec)
         }
 
@@ -161,7 +187,7 @@ function Get-VvcAudit {
         if ($group.Vvc) {
             if (-not $vvcInfo.Valid) {
                 $suspiciousVvc = $true
-                $suspiciousReasons.Add($vvcInfo.Reason)
+                $suspiciousReasons.Add($vvcInfo.Reason.ToString())
             }
             if ($vvcInfo.SizeMB -gt 0 -and $vvcInfo.SizeMB -lt $MinExpectedVvcMB) {
                 $suspiciousVvc = $true
@@ -180,48 +206,44 @@ function Get-VvcAudit {
             }
         }
 
-        $status =
+        [VvcAuditStatus]$status =
         if ($group.Original -and -not $group.Vvc) {
-            if ($originalInfo.Valid) { 'original valid, no _vvc' } else { 'original corrupt, no _vvc' }
+            if ($originalInfo.Valid) {
+                [VvcAuditStatus]::OriginalValidNoVvc
+            } else {
+                [VvcAuditStatus]::OriginalCorruptNoVvc
+            }
         } elseif ($group.Original -and $group.Vvc) {
             if ($suspiciousVvc) {
-                '_vvc suspicious/corrupt'
+                [VvcAuditStatus]::VvcSuspiciousOrCorrupt
             } elseif ($originalInfo.Valid -and $vvcInfo.Valid) {
-                'original valid + _vvc valid'
+                [VvcAuditStatus]::OriginalValidAndVvcValid
             } elseif (-not $originalInfo.Valid -and $vvcInfo.Valid) {
-                'original corrupt + _vvc valid'
+                [VvcAuditStatus]::OriginalCorruptAndVvcValid
             } else {
-                '_vvc suspicious/corrupt'
+                [VvcAuditStatus]::VvcSuspiciousOrCorrupt
             }
         } elseif ($group.Vvc) {
-            if ($suspiciousVvc) { '_vvc suspicious/corrupt' } else { 'vvc valid, original missing' }
+            if ($suspiciousVvc) {
+                [VvcAuditStatus]::VvcSuspiciousOrCorrupt
+            } else {
+                [VvcAuditStatus]::VvcValidOriginalMissing
+            }
         } else {
-            'unclassified'
+            [VvcAuditStatus]::Unclassified
         }
 
         [VvcAuditResult]::new(
             $group.EpisodeKey,
             $group.Directory,
             $status,
-            $(if ($group.Original) { $group.Original.FullName } else { $null }),
-            $(if ($group.Original) { $group.Original.Name } else { $null }),
-            $(if ($originalInfo) { $originalInfo.Valid } else { $false }),
-            $(if ($originalInfo) { $originalInfo.Reason } else { 'missing original' }),
-            $(if ($originalInfo) { $originalInfo.VideoCodec } else { '' }),
-            $(if ($originalInfo) { $originalInfo.DurationSec } else { -1.0 }),
-            $(if ($originalInfo) { $originalInfo.SizeMB } else { 0.0 }),
-            $(if ($group.Vvc) { $group.Vvc.FullName } else { $null }),
-            $(if ($group.Vvc) { $group.Vvc.Name } else { $null }),
-            $(if ($vvcInfo) { $vvcInfo.Valid } else { $false }),
-            $(if ($vvcInfo) { $vvcInfo.Reason } else { 'missing _vvc' }),
-            $(if ($vvcInfo) { $vvcInfo.VideoCodec } else { '' }),
-            $(if ($vvcInfo) { $vvcInfo.DurationSec } else { -1.0 }),
-            $(if ($vvcInfo) { $vvcInfo.SizeMB } else { 0.0 }),
+            $originalInfo,
+            $vvcInfo,
             $durationDriftSec,
             $suspiciousVvc,
             @($suspiciousReasons),
             $safeToDeleteOriginal,
-            ($status -eq 'original valid, no _vvc')
+            ($status -eq [VvcAuditStatus]::OriginalValidNoVvc)
         )
     }
 }

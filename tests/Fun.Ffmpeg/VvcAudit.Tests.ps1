@@ -51,6 +51,149 @@ AfterAll {
     $env:PATH = $script:originalPath
 }
 
+Describe 'VvcAudit types' {
+    It 'uses enum-backed inspection reasons and nullable durations' {
+        InModuleScope Fun.Ffmpeg {
+            $inspection = [VvcMediaInspection]::new(
+                'C:\videos\episode01.mkv',
+                $true,
+                12.345,
+                $false,
+                $true,
+                [VvcInspectionReason]::None,
+                'h264',
+                1440.0,
+                $null
+            )
+
+            $inspection.Reason.GetType().Name | Should -Be 'VvcInspectionReason'
+            $inspection.DurationSec.GetType().Name | Should -Be 'Double'
+            $inspection.SizeMB | Should -Be 12.34
+        }
+    }
+
+    It 'rejects impossible inspection states' {
+        InModuleScope Fun.Ffmpeg {
+            {
+                [VvcMediaInspection]::new(
+                    'C:\videos\missing.mkv',
+                    $false,
+                    1.0,
+                    $false,
+                    $true,
+                    [VvcInspectionReason]::None,
+                    '',
+                    $null,
+                    $null
+                )
+            } | Should -Throw
+
+            {
+                [VvcMediaInspection]::new(
+                    'C:\videos\negative.mkv',
+                    $true,
+                    1.0,
+                    $false,
+                    $false,
+                    [VvcInspectionReason]::ProbeFailed,
+                    '',
+                    -1.0,
+                    $null
+                )
+            } | Should -Throw
+        }
+    }
+
+    It 'stores composed inspections and preserves flattened compatibility accessors' {
+        InModuleScope Fun.Ffmpeg {
+            $original = [VvcMediaInspection]::new(
+                'C:\videos\episode01.mkv',
+                $true,
+                100.0,
+                $false,
+                $true,
+                [VvcInspectionReason]::None,
+                'h264',
+                1440.0,
+                $null
+            )
+            $vvc = [VvcMediaInspection]::new(
+                'C:\videos\episode01_vvc.mkv',
+                $true,
+                40.0,
+                $false,
+                $true,
+                [VvcInspectionReason]::None,
+                'vvc',
+                1439.6,
+                $null
+            )
+
+            $audit = [VvcAuditResult]::new(
+                'episode01',
+                'C:\videos',
+                [VvcAuditStatus]::OriginalValidAndVvcValid,
+                $original,
+                $vvc,
+                0.4,
+                $false,
+                @(),
+                $true,
+                $false
+            )
+
+            $audit.Status.GetType().Name | Should -Be 'VvcAuditStatus'
+            $audit.Original.GetType().Name | Should -Be 'VvcMediaInspection'
+            $audit.Vvc.GetType().Name | Should -Be 'VvcMediaInspection'
+            $audit.OriginalPath | Should -Be 'C:\videos\episode01.mkv'
+            $audit.VvcValid | Should -BeTrue
+            $audit.OriginalReason.ToString() | Should -Be 'None'
+        }
+    }
+
+    It 'rejects impossible audit combinations' {
+        InModuleScope Fun.Ffmpeg {
+            $original = [VvcMediaInspection]::new(
+                'C:\videos\episode01.mkv',
+                $true,
+                100.0,
+                $false,
+                $true,
+                [VvcInspectionReason]::None,
+                'h264',
+                1440.0,
+                $null
+            )
+            $invalidVvc = [VvcMediaInspection]::new(
+                'C:\videos\episode01_vvc.mkv',
+                $true,
+                40.0,
+                $false,
+                $false,
+                [VvcInspectionReason]::DecodeFailed,
+                'vvc',
+                1439.6,
+                $false
+            )
+
+            {
+                [VvcAuditResult]::new(
+                    'episode01',
+                    'C:\videos',
+                    [VvcAuditStatus]::OriginalValidAndVvcValid,
+                    $original,
+                    $invalidVvc,
+                    0.4,
+                    $false,
+                    @(),
+                    $true,
+                    $false
+                )
+            } | Should -Throw
+        }
+    }
+}
+
 Describe 'Get-VvcAudit' {
     It 'classifies validated pairs as safe-to-delete originals' {
         $root = New-VvcAuditTestRoot
@@ -63,7 +206,9 @@ Describe 'Get-VvcAudit' {
 
         $result.Count | Should -Be 1
         $result[0].GetType().Name | Should -Be 'VvcAuditResult'
-        $result[0].Status | Should -Be 'original valid + _vvc valid'
+        $result[0].Status.ToString() | Should -Be 'OriginalValidAndVvcValid'
+        $result[0].Original.GetType().Name | Should -Be 'VvcMediaInspection'
+        $result[0].Vvc.GetType().Name | Should -Be 'VvcMediaInspection'
         $result[0].SafeToDeleteOriginal | Should -BeTrue
         $result[0].CanConvert | Should -BeFalse
         $result[0].DurationDriftSec | Should -BeLessThan 1.5
@@ -80,7 +225,7 @@ Describe 'Get-VvcAudit' {
 
         $result.Count | Should -Be 1
         $result[0].GetType().Name | Should -Be 'VvcAuditResult'
-        $result[0].Status | Should -Be 'original corrupt + _vvc valid'
+        $result[0].Status.ToString() | Should -Be 'OriginalCorruptAndVvcValid'
         $result[0].OriginalValid | Should -BeFalse
         $result[0].VvcValid | Should -BeTrue
         $result[0].SafeToDeleteOriginal | Should -BeFalse
@@ -97,7 +242,7 @@ Describe 'Get-VvcAudit' {
 
         $result.Count | Should -Be 1
         $result[0].GetType().Name | Should -Be 'VvcAuditResult'
-        $result[0].Status | Should -Be '_vvc suspicious/corrupt'
+        $result[0].Status.ToString() | Should -Be 'VvcSuspiciousOrCorrupt'
         $result[0].SuspiciousVvc | Should -BeTrue
         $result[0].SafeToDeleteOriginal | Should -BeFalse
     }
