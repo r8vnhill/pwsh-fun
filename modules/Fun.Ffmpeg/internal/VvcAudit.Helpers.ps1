@@ -1,6 +1,9 @@
+using module .\VvcAudit.Types.psm1
+
 Set-StrictMode -Version Latest
 
 function Get-VvcToolPaths {
+    [OutputType([VvcToolPaths])]
     $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
     if (-not $ffmpeg) {
         throw "ffmpeg was not found in PATH."
@@ -11,13 +14,11 @@ function Get-VvcToolPaths {
         throw "ffprobe was not found in PATH."
     }
 
-    [pscustomobject]@{
-        FfmpegPath  = $ffmpeg.Path
-        FfprobePath = $ffprobe.Path
-    }
+    [VvcToolPaths]::new($ffmpeg.Path, $ffprobe.Path)
 }
 
 function Get-VvcFileSizeMB {
+    [OutputType([double])]
     param([string]$Path)
 
     try {
@@ -29,12 +30,14 @@ function Get-VvcFileSizeMB {
 }
 
 function Test-VvcCodecName {
+    [OutputType([bool])]
     param([string]$CodecName)
 
     return ($CodecName -match '^(vvc|vvc1)$')
 }
 
 function Get-VvcMediaInspection {
+    [OutputType([VvcMediaInspection])]
     param(
         [Parameter(Mandatory)]
         [string]$Path,
@@ -52,21 +55,26 @@ function Get-VvcMediaInspection {
     )
 
     $item = Get-Item -LiteralPath $Path -ErrorAction Stop
-    $result = [ordered]@{
-        Path        = $item.FullName
-        Exists      = $true
-        SizeMB      = [math]::Round($item.Length / 1MB, 2)
-        IsEmpty     = ($item.Length -le 0)
-        Valid       = $false
-        Reason      = ''
-        VideoCodec  = ''
-        DurationSec = -1.0
-        Decodable   = $null
-    }
+    $sizeMB = [math]::Round($item.Length / 1MB, 2)
+    $isEmpty = ($item.Length -le 0)
+    $valid = $false
+    $reason = ''
+    $videoCodec = ''
+    $durationSec = -1.0
+    $decodable = $null
 
-    if ($result.IsEmpty) {
-        $result.Reason = 'input file is empty.'
-        return [pscustomobject]$result
+    if ($isEmpty) {
+        return [VvcMediaInspection]::new(
+            $item.FullName,
+            $true,
+            $sizeMB,
+            $true,
+            $false,
+            'input file is empty.',
+            '',
+            -1.0,
+            $null
+        )
     }
 
     $probeArgs = @(
@@ -82,41 +90,73 @@ function Get-VvcMediaInspection {
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
         $probeMessage = ($probeOutput | Out-String).Trim()
-        $result.Reason = if ([string]::IsNullOrWhiteSpace($probeMessage)) {
+        $reason = if ([string]::IsNullOrWhiteSpace($probeMessage)) {
             'ffprobe could not read the input container.'
         } else {
             $probeMessage
         }
-        return [pscustomobject]$result
+        return [VvcMediaInspection]::new(
+            $item.FullName,
+            $true,
+            $sizeMB,
+            $false,
+            $false,
+            $reason,
+            '',
+            -1.0,
+            $null
+        )
     }
 
     $lines = @($probeOutput | ForEach-Object { ($_ | Out-String).Trim() } | Where-Object { $_ })
     if ($lines.Count -gt 0) {
-        $result.VideoCodec = $lines[0]
+        $videoCodec = $lines[0]
     }
 
     if ($lines.Count -gt 1) {
         try {
-            $result.DurationSec = [double]::Parse($lines[1], [Globalization.CultureInfo]::InvariantCulture)
+            $durationSec = [double]::Parse(
+                $lines[1],
+                [Globalization.CultureInfo]::InvariantCulture
+            )
         } catch {
-            $result.DurationSec = -1.0
+            $durationSec = -1.0
         }
     }
 
     if ($Verify -eq 'strict') {
         ffmpeg -v error -noautorotate -err_detect explode -t $DecodeSeconds -i $item.FullName -f null - 2>$null
-        $result.Decodable = ($LASTEXITCODE -eq 0)
-        if (-not $result.Decodable) {
-            $result.Reason = 'decode test failed'
-            return [pscustomobject]$result
+        $decodable = ($LASTEXITCODE -eq 0)
+        if (-not $decodable) {
+            return [VvcMediaInspection]::new(
+                $item.FullName,
+                $true,
+                $sizeMB,
+                $false,
+                $false,
+                'decode test failed',
+                $videoCodec,
+                $durationSec,
+                $decodable
+            )
         }
     }
 
-    $result.Valid = $true
-    return [pscustomobject]$result
+    [VvcMediaInspection]::new(
+        $item.FullName,
+        $true,
+        $sizeMB,
+        $false,
+        $true,
+        '',
+        $videoCodec,
+        $durationSec,
+        $decodable
+    )
 }
 
 function Get-VvcEpisodeKey {
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)]
         [System.IO.FileInfo]$File,

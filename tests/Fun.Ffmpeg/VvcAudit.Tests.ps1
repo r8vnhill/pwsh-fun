@@ -1,4 +1,4 @@
-#Requires -Version 7.4
+#Requires -Version 7.5
 #Requires -Modules Pester
 
 BeforeAll {
@@ -62,6 +62,7 @@ Describe 'Get-VvcAudit' {
         $result = @(Get-VvcAudit -InputDir $root -MinExpectedVvcMB 0)
 
         $result.Count | Should -Be 1
+        $result[0].GetType().Name | Should -Be 'VvcAuditResult'
         $result[0].Status | Should -Be 'original valid + _vvc valid'
         $result[0].SafeToDeleteOriginal | Should -BeTrue
         $result[0].CanConvert | Should -BeFalse
@@ -78,6 +79,7 @@ Describe 'Get-VvcAudit' {
         $result = @(Get-VvcAudit -InputDir $root -MinExpectedVvcMB 0)
 
         $result.Count | Should -Be 1
+        $result[0].GetType().Name | Should -Be 'VvcAuditResult'
         $result[0].Status | Should -Be 'original corrupt + _vvc valid'
         $result[0].OriginalValid | Should -BeFalse
         $result[0].VvcValid | Should -BeTrue
@@ -94,6 +96,7 @@ Describe 'Get-VvcAudit' {
         $result = @(Get-VvcAudit -InputDir $root -MinExpectedVvcMB 1)
 
         $result.Count | Should -Be 1
+        $result[0].GetType().Name | Should -Be 'VvcAuditResult'
         $result[0].Status | Should -Be '_vvc suspicious/corrupt'
         $result[0].SuspiciousVvc | Should -BeTrue
         $result[0].SafeToDeleteOriginal | Should -BeFalse
@@ -119,12 +122,12 @@ Describe 'Remove-ValidatedVvcOriginal' {
         $result[0].GetType().Name | Should -Be 'VvcRemovalResult'
         $result[1].GetType().Name | Should -Be 'VvcRemovalResult'
         $result[0].OriginalPath | Should -Be $safeOriginalPath
-        $result[0].Status | Should -Be 'Removed'
-        $result[0].Reason | Should -BeNullOrEmpty
+        $result[0].Status.ToString() | Should -Be 'Removed'
+        $result[0].Reason.ToString() | Should -Be 'None'
         $result[0].ReclaimedMB | Should -Be $result[0].OriginalSizeMB
         $result[1].OriginalPath | Should -Be $unsafeOriginalPath
-        $result[1].Status | Should -Be 'Skipped'
-        $result[1].Reason | Should -Be 'UnsafeToDelete'
+        $result[1].Status.ToString() | Should -Be 'Skipped'
+        $result[1].Reason.ToString() | Should -Be 'UnsafeToDelete'
         (Test-Path -LiteralPath $safeOriginalPath) | Should -BeFalse
         (Test-Path -LiteralPath $safeVvcPath) | Should -BeTrue
         (Test-Path -LiteralPath $unsafeOriginalPath) | Should -BeTrue
@@ -142,8 +145,8 @@ Describe 'Remove-ValidatedVvcOriginal' {
 
         $result.Count | Should -Be 1
         $result[0].GetType().Name | Should -Be 'VvcRemovalResult'
-        $result[0].Status | Should -Be 'WouldRemove'
-        $result[0].Reason | Should -Be 'WhatIf'
+        $result[0].Status.ToString() | Should -Be 'WouldRemove'
+        $result[0].Reason.ToString() | Should -Be 'WhatIf'
         (Test-Path -LiteralPath $safeOriginalPath) | Should -BeTrue
     }
 
@@ -218,12 +221,12 @@ Describe 'Remove-ValidatedVvcOriginal' {
             $result = @(Remove-ValidatedVvcOriginal -InputDir 'C:\videos' -Confirm:$false)
 
             $result.Count | Should -Be 3
-            ($result | Where-Object Reason -eq 'MissingOriginalPath').Count | Should -Be 1
-            ($result | Where-Object Reason -eq 'MissingOriginalPath').Status | Should -Be 'Skipped'
-            $failed = $result | Where-Object Status -eq 'Failed'
+            ($result | Where-Object { $_.Reason.ToString() -eq 'MissingOriginalPath' }).Count | Should -Be 1
+            ($result | Where-Object { $_.Reason.ToString() -eq 'MissingOriginalPath' }).Status.ToString() | Should -Be 'Skipped'
+            $failed = $result | Where-Object { $_.Status.ToString() -eq 'Failed' }
             $failed.Count | Should -Be 1
             $failed[0].GetType().Name | Should -Be 'VvcRemovalResult'
-            $failed[0].Reason | Should -Be 'RemoveFailed'
+            $failed[0].Reason.ToString() | Should -Be 'RemoveFailed'
             $failed[0].ErrorMessage | Should -Match 'simulated delete failure'
             Assert-MockCalled Remove-Item -Times 1 -ModuleName Fun.Ffmpeg -Exactly
         }
@@ -263,6 +266,30 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
         }
 
+        It 'normalizes extensions to lowercase unique dotted values' {
+            Mock Remove-Item {} -ModuleName Fun.Ffmpeg
+
+            $null = Remove-ValidatedVvcOriginal -InputDir 'C:\videos' -Extensions 'mkv', '.MKV', ' Mp4 ', '.mp4' -Confirm:$false
+
+            Assert-MockCalled Get-VvcAudit -Times 1 -ModuleName Fun.Ffmpeg -Exactly -ParameterFilter {
+                $Extensions.Count -eq 2 -and
+                $Extensions[0] -eq '.mkv' -and
+                $Extensions[1] -eq '.mp4'
+            }
+        }
+
+        It 'fails when extension normalization yields an empty set' {
+            InModuleScope Fun.Ffmpeg {
+                try {
+                    throw [VvcRemovalConfigurationException]::new(
+                        'At least one non-empty extension is required after normalization.'
+                    )
+                } catch {
+                    $_.Exception.GetType().Name | Should -Be 'VvcRemovalConfigurationException'
+                }
+            }
+        }
+
         It 'maintains key safety properties across randomized audit items' {
             $items = for ($i = 0; $i -lt 25; $i++) {
                 $originalPath = if ($i % 5 -eq 0) { '' } else { "C:\videos\ep$i.mkv" }
@@ -283,9 +310,9 @@ Describe 'Remove-ValidatedVvcOriginal' {
             Mock Remove-Item {} -ModuleName Fun.Ffmpeg
 
             $result = @('C:\videos' | Remove-ValidatedVvcOriginal -Confirm:$false)
-            $removed = @($result | Where-Object Status -eq 'Removed')
+            $removed = @($result | Where-Object { $_.Status.ToString() -eq 'Removed' })
 
-            foreach ($entry in ($result | Where-Object Status -eq 'Removed')) {
+            foreach ($entry in ($result | Where-Object { $_.Status.ToString() -eq 'Removed' })) {
                 $source = $items | Where-Object EpisodeKey -eq $entry.EpisodeKey
                 $source.SafeToDeleteOriginal | Should -BeTrue
                 [string]::IsNullOrWhiteSpace($source.OriginalPath) | Should -BeFalse
@@ -293,17 +320,64 @@ Describe 'Remove-ValidatedVvcOriginal' {
             }
 
             foreach ($entry in ($result | Where-Object OriginalPath -eq '')) {
-                $entry.Status | Should -Be 'Skipped'
-                $entry.Reason | Should -Be 'MissingOriginalPath'
+                $entry.Status.ToString() | Should -Be 'Skipped'
+                $entry.Reason.ToString() | Should -Be 'MissingOriginalPath'
             }
 
-            foreach ($entry in ($result | Where-Object Status -eq 'Skipped')) {
-                if ($entry.Reason -eq 'UnsafeToDelete') {
+            foreach ($entry in ($result | Where-Object { $_.Status.ToString() -eq 'Skipped' })) {
+                if ($entry.Reason.ToString() -eq 'UnsafeToDelete') {
                     ($items | Where-Object EpisodeKey -eq $entry.EpisodeKey).SafeToDeleteOriginal | Should -BeFalse
                 }
             }
 
             Assert-MockCalled Remove-Item -Times $removed.Count -ModuleName Fun.Ffmpeg -Exactly
+        }
+
+        It 'produces idempotent non-empty normalized extensions' {
+            InModuleScope Fun.Ffmpeg {
+                $once = ConvertTo-VvcRemovalExtensions -Extensions 'MKV', 'mkv', '.Mp4', '  avi '
+                $twice = ConvertTo-VvcRemovalExtensions -Extensions $once
+
+                foreach ($extension in $once) {
+                    $extension.StartsWith('.') | Should -BeTrue
+                    $extension | Should -Be $extension.ToLowerInvariant()
+                    [string]::IsNullOrWhiteSpace($extension) | Should -BeFalse
+                }
+
+                $once | Should -Be $twice
+            }
+        }
+
+        It 'uses domain invariant exceptions for invalid result construction' {
+            InModuleScope Fun.Ffmpeg {
+                {
+                    [VvcRemovalResult]::new(
+                        'ep01',
+                        'C:\videos\ep01.mkv',
+                        'C:\videos\ep01_vvc.mkv',
+                        [VvcRemovalStatus]::Removed,
+                        [VvcRemovalReason]::UnsafeToDelete,
+                        100.0,
+                        40.0,
+                        100.0,
+                        [Nullable[double]]0.0,
+                        $null
+                    )
+                } | Should -Throw -ExceptionType ([VvcRemovalInvariantException])
+            }
+        }
+
+        It 'uses domain execution exceptions for strict-mode stop behavior' {
+            Mock Remove-Item {
+                throw 'simulated delete failure'
+            } -ModuleName Fun.Ffmpeg
+
+            try {
+                Remove-ValidatedVvcOriginal -InputDir 'C:\videos' -Confirm:$false -StopOnError
+                throw 'Expected Remove-ValidatedVvcOriginal to fail.'
+            } catch {
+                $_.Exception.GetType().Name | Should -Be 'VvcRemovalExecutionException'
+            }
         }
     }
 }

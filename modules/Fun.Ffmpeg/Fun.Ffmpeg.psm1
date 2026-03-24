@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 7.5
 Set-StrictMode -Version Latest
 Write-Verbose "Initializing Fun.Ffmpeg from: $PSScriptRoot"
 

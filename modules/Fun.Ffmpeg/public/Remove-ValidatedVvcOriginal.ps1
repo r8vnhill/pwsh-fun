@@ -1,4 +1,6 @@
-#Requires -Version 7.4
+#Requires -Version 7.5
+using module ..\internal\VvcRemoval.Types.psm1
+using namespace System.Collections.Generic
 
 Set-StrictMode -Version 3.0
 
@@ -70,11 +72,12 @@ Set-StrictMode -Version 3.0
     object at the end of the run.
 
 .NOTES
-    Result statuses are behavior-oriented: `Removed`, `Skipped`, `WouldRemove`, and
-    `Failed`. Reasons are emitted only when needed to explain why an item was not removed.
+    Result statuses and reasons are backed by enums at runtime. Successful removals use
+    `Reason = None`; non-removed results always carry an explicit reason value.
 #>
 function Remove-ValidatedVvcOriginal {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
+    [OutputType([VvcRemovalResult], [VvcRemovalSummary])]
     param(
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
@@ -105,7 +108,7 @@ function Remove-ValidatedVvcOriginal {
     )
 
     begin {
-        $allResults = [System.Collections.Generic.List[VvcRemovalResult]]::new()
+        [VvcRemovalResult[]]$allResults = @()
     }
 
     process {
@@ -122,27 +125,30 @@ function Remove-ValidatedVvcOriginal {
         $auditItems = Get-VvcRemovalAuditItems @auditParams
 
         foreach ($item in $auditItems) {
-            $result = Get-VvcRemovalAction -Item $item
-            if ($null -eq $result) {
-                $action = Get-VvcRemovalShouldProcessAction -Item $item
-                if (-not $PSCmdlet.ShouldProcess($item.OriginalPath, $action)) {
+            $decision = Get-VvcRemovalDecision -Item $item
+            $result = $decision.Result
+
+            if ($decision.CanProceed) {
+                if (-not $PSCmdlet.ShouldProcess($item.OriginalPath, $decision.ShouldProcessAction)) {
                     $resultParams = @{
                         Item        = $item
-                        Status      = 'WouldRemove'
-                        Reason      = 'WhatIf'
+                        Status      = [VvcRemovalStatus]::WouldRemove
+                        Reason      = [VvcRemovalReason]::WhatIf
                         ReclaimedMB = $item.OriginalSizeMB
                     }
                     $result = New-VvcRemovalResult @resultParams
                 } else {
-                    $removeParams = @{
-                        Item        = $item
-                        StopOnError = $StopOnError
-                    }
-                    $result = Invoke-VvcOriginalRemoval @removeParams
+                    $result = Invoke-VvcOriginalRemoval -Item $item
                 }
             }
 
-            Write-VvcRemovalResult -Results $allResults -Result $result
+            $allResults += $result
+            $result
+
+            if ($StopOnError -and $result.Status -eq [VvcRemovalStatus]::Failed) {
+                $message = if ($result.ErrorMessage) { $result.ErrorMessage } else { 'Removal failed.' }
+                throw [VvcRemovalExecutionException]::new($message)
+            }
         }
     }
 
