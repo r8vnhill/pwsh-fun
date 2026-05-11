@@ -100,6 +100,8 @@ function Initialize-FakeToolsForScenario {
 
         [switch] $CreateOutput,
 
+        [switch] $EmitFfmpegProgress,
+
         [int] $FfmpegExitCode = 0
     )
 
@@ -109,7 +111,12 @@ function Initialize-FakeToolsForScenario {
     }
     Set-FakeMediaToolMarkers @markerParams
     Set-FakeFfprobeScenarios -Scenarios $FfprobeScenarios
-    Set-FakeFfmpegBehavior -ExitCode $FfmpegExitCode -CreateOutput:$CreateOutput
+    $ffmpegBehaviorParams = @{
+        ExitCode     = $FfmpegExitCode
+        CreateOutput = $CreateOutput
+        EmitProgress = $EmitFfmpegProgress
+    }
+    Set-FakeFfmpegBehavior @ffmpegBehaviorParams
 }
 
 function New-ScenarioInput {
@@ -164,7 +171,11 @@ function Invoke-ScenarioCommand {
 
         [switch] $UseWhatIf,
 
+        [int] $MaxParallel = 1,
+
         [string[]] $Extensions,
+
+        [int] $EncoderThreads = 0,
 
         [switch] $Overwrite
     )
@@ -177,9 +188,13 @@ function Invoke-ScenarioCommand {
         $commandParams.Extensions = $Extensions
     }
 
+    $commandParams.EncoderThreads = $EncoderThreads
+
     if ($UseWhatIf) {
         $commandParams.WhatIf = $true
     }
+
+    $commandParams.MaxParallel = $MaxParallel
 
     if ($Overwrite) {
         $commandParams.Overwrite = $true
@@ -332,6 +347,8 @@ function Invoke-ConvertScenario {
 
         [switch] $CreateOutput,
 
+        [switch] $EmitFfmpegProgress,
+
         [int] $FfmpegExitCode = 0,
 
         [switch] $UseLiteralPath,
@@ -340,6 +357,8 @@ function Invoke-ConvertScenario {
 
         [switch] $UseWhatIf,
 
+        [int] $MaxParallel = 1,
+
         [switch] $CreateExistingOutput,
 
         [switch] $CreateOutputDir,
@@ -347,6 +366,8 @@ function Invoke-ConvertScenario {
         [string] $ExistingOutputName,
 
         [string[]] $Extensions,
+
+        [int] $EncoderThreads = 0,
 
         [switch] $Overwrite
     )
@@ -362,6 +383,7 @@ function Invoke-ConvertScenario {
         Layout           = $layout
         FfprobeScenarios = $FfprobeScenarios
         CreateOutput     = $CreateOutput
+        EmitFfmpegProgress = $EmitFfmpegProgress
         FfmpegExitCode   = $FfmpegExitCode
     }
     Initialize-FakeToolsForScenario @fakeToolParams
@@ -384,7 +406,9 @@ function Invoke-ConvertScenario {
         UseLiteralPath  = $UseLiteralPath
         UsePipelinePath = $UsePipelinePath
         UseWhatIf       = $UseWhatIf
+        MaxParallel     = $MaxParallel
         Extensions      = $Extensions
+        EncoderThreads  = $EncoderThreads
         Overwrite       = $Overwrite
     }
     $result = @(Invoke-ScenarioCommand @cmdParams)

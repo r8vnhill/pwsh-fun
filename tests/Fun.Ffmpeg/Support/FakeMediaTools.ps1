@@ -31,6 +31,20 @@ $scenarios = if ([string]::IsNullOrWhiteSpace($json)) {
 }
 
 if (-not $scenarios.ContainsKey($name)) {
+    $partialMatch = [regex]::Match($name, '^(?<stem>.+)\.[0-9a-f]{32}\.partial(?<ext>\.[^.]+)$')
+    if ($partialMatch.Success) {
+        $legacyPartialName = '{0}.__partial__{1}' -f $partialMatch.Groups['stem'].Value, $partialMatch.Groups['ext'].Value
+        $finalName = '{0}{1}' -f $partialMatch.Groups['stem'].Value, $partialMatch.Groups['ext'].Value
+        $name = if ($scenarios.ContainsKey($legacyPartialName)) {
+            $legacyPartialName
+        }
+        else {
+            $finalName
+        }
+    }
+}
+
+if (-not $scenarios.ContainsKey($name)) {
     Write-Output 'unexpected ffprobe input'
     exit 1
 }
@@ -91,6 +105,10 @@ if ($createOutput -and -not [string]::IsNullOrWhiteSpace($outputPath) -and $outp
     Set-Content -LiteralPath $outputPath -Value ('fake vvc output' * 131072)
 }
 
+if ($env:FAKE_FFMPEG_EMIT_PROGRESS -eq '1' -and $Args -contains '-i') {
+    Write-Output 'frame=35192 fps=5.2 q=-0.0 size=260634KiB time=-00:00:00.00 bitrate=N/A speed=N/A'
+}
+
 $exitCode = if ([string]::IsNullOrWhiteSpace($env:FAKE_FFMPEG_EXIT_CODE)) {
     0
 } else {
@@ -111,6 +129,7 @@ exit $exitCode
         OriginalFfprobeScenarios   = $env:FAKE_FFPROBE_SCENARIOS_JSON
         OriginalFfmpegExitCode     = $env:FAKE_FFMPEG_EXIT_CODE
         OriginalFfmpegCreateOutput = $env:FAKE_FFMPEG_CREATE_OUTPUT
+        OriginalFfmpegEmitProgress = $env:FAKE_FFMPEG_EMIT_PROGRESS
     }
 }
 
@@ -135,6 +154,7 @@ function Reset-FakeMediaToolEnvironment {
     $env:FAKE_FFPROBE_SCENARIOS_JSON = $Context.OriginalFfprobeScenarios
     $env:FAKE_FFMPEG_EXIT_CODE = $Context.OriginalFfmpegExitCode
     $env:FAKE_FFMPEG_CREATE_OUTPUT = $Context.OriginalFfmpegCreateOutput
+    $env:FAKE_FFMPEG_EMIT_PROGRESS = $Context.OriginalFfmpegEmitProgress
 }
 
 function Restore-FakeMediaToolSupport {
@@ -149,6 +169,7 @@ function Restore-FakeMediaToolSupport {
     $env:FAKE_FFPROBE_SCENARIOS_JSON = $Context.OriginalFfprobeScenarios
     $env:FAKE_FFMPEG_EXIT_CODE = $Context.OriginalFfmpegExitCode
     $env:FAKE_FFMPEG_CREATE_OUTPUT = $Context.OriginalFfmpegCreateOutput
+    $env:FAKE_FFMPEG_EMIT_PROGRESS = $Context.OriginalFfmpegEmitProgress
 }
 
 function Set-FakeMediaToolMarkers {
@@ -177,9 +198,12 @@ function Set-FakeFfmpegBehavior {
     param(
         [int]$ExitCode = 0,
 
-        [switch]$CreateOutput
+        [switch]$CreateOutput,
+
+        [switch]$EmitProgress
     )
 
     $env:FAKE_FFMPEG_EXIT_CODE = [string]$ExitCode
     $env:FAKE_FFMPEG_CREATE_OUTPUT = if ($CreateOutput) { '1' } else { '0' }
+    $env:FAKE_FFMPEG_EMIT_PROGRESS = if ($EmitProgress) { '1' } else { '0' }
 }

@@ -59,6 +59,68 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
         (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
     }
 
+    It 'passes encoder thread settings to ffmpeg' -ForEach @(
+        @{ Name = 'automatic threads'; EncoderThreads = 0 }
+        @{ Name = 'bounded threads'; EncoderThreads = 2 }
+    ) {
+        $scenarioParams = @{
+            FileName         = 'threads.mkv'
+            InputContent     = ('threaded media payload' * 4096)
+            FfprobeScenarios = New-ValidVvcScenarioSet -FileName 'threads.mkv'
+            CreateOutput     = $true
+            EncoderThreads   = $EncoderThreads
+        }
+        $scenario = Invoke-ConvertScenario @scenarioParams
+
+        Assert-ScenarioSucceeded -Scenario $scenario -FileName 'threads.mkv'
+
+        $ffmpegArgs = Get-Content -LiteralPath $scenario.FfmpegMarker -Raw
+        $ffmpegArgs | Should -Match ('-threads {0}' -f $EncoderThreads)
+    }
+
+    It 'imports the module and invokes the internal worker entrypoint in parallel mode' {
+        $scenarioParams = @{
+            FileName         = 'parallel.mkv'
+            InputContent     = ('parallel media payload' * 4096)
+            FfprobeScenarios = New-ValidVvcScenarioSet -FileName 'parallel.mkv'
+            CreateOutput     = $true
+            MaxParallel      = 2
+        }
+        $scenario = Invoke-ConvertScenario @scenarioParams
+
+        Assert-ScenarioSucceeded -Scenario $scenario -FileName 'parallel.mkv'
+
+        $toolStateParams = @{
+            Scenario      = $scenario
+            ExpectFfprobe = $true
+            ExpectFfmpeg  = $true
+        }
+        Assert-ToolInvocationState @toolStateParams
+    }
+
+    It 'ignores native ffmpeg progress output leaked into the worker stream' {
+        $scenarioParams = @{
+            FileName             = 'progress.mkv'
+            InputContent         = ('synthetic but non-empty media payload' * 4096)
+            FfprobeScenarios     = New-ValidVvcScenarioSet -FileName 'progress.mkv'
+            CreateOutput         = $true
+            EmitFfmpegProgress   = $true
+        }
+        $scenario = Invoke-ConvertScenario @scenarioParams
+
+        Assert-ScenarioSucceeded -Scenario $scenario -FileName 'progress.mkv'
+        $scenario.Result.Count | Should -Be 1
+
+        $toolStateParams = @{
+            Scenario      = $scenario
+            ExpectFfprobe = $true
+            ExpectFfmpeg  = $true
+        }
+        Assert-ToolInvocationState @toolStateParams
+        (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+        (Test-Path -LiteralPath $scenario.PartialOutputPath) | Should -BeFalse
+    }
+
     It 'supports LiteralPath and pipeline path input' -ForEach @(
         @{ Name = 'explicit LiteralPath'; UseLiteralPath = $true; UsePipelinePath = $false }
         @{ Name = 'pipeline LiteralPath'; UseLiteralPath = $false; UsePipelinePath = $true }

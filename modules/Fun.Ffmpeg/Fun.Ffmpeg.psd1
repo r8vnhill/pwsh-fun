@@ -17,6 +17,7 @@
     FunctionsToExport = @(
         'Convert-ToVvc',
         'Get-VvcAudit',
+        'Invoke-FunFfmpegInternalVvcWorker',
         'Remove-ValidatedVvcOriginal'
     )
 

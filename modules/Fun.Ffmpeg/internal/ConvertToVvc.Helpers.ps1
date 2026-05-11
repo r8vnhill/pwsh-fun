@@ -210,7 +210,7 @@ function Write-ConvertToVvcNoMatchingFilesVerbose {
 }
 
 function Get-ConvertToVvcWorkerArguments {
-    [OutputType([object[]])]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)]
         [string]$Suffix,
@@ -231,22 +231,31 @@ function Get-ConvertToVvcWorkerArguments {
         [string]$FfmpegPath,
 
         [Parameter(Mandatory)]
+        [string]$FfprobePath,
+
+        [Parameter(Mandatory)]
         [string]$Verify,
 
         [Parameter(Mandatory)]
-        [double]$MaxDrift
+        [double]$MaxDrift,
+
+        [Parameter(Mandatory)]
+        [int]$EncoderThreads
     )
 
-    @(
-        $Suffix,
-        $OutputDir,
-        $Qp,
-        $Preset,
-        $Overwrite,
-        $FfmpegPath,
-        $Verify,
-        $MaxDrift
-    )
+    @{
+        Suffix         = $Suffix
+        OutputDir      = $OutputDir
+        Qp             = $Qp
+        Preset         = $Preset
+        Overwrite      = $Overwrite
+        FfmpegPath     = $FfmpegPath
+        FfprobePath    = $FfprobePath
+        VerifyMode     = $Verify
+        MaxDriftSec    = $MaxDrift
+        EncoderThreads = $EncoderThreads
+        ModulePath     = [string](Join-Path $PSScriptRoot '..\Fun.Ffmpeg.psd1' -Resolve)
+    }
 }
 
 function Invoke-ConvertToVvcWorker {
@@ -259,7 +268,7 @@ function Invoke-ConvertToVvcWorker {
         [scriptblock]$Worker,
 
         [Parameter(Mandatory)]
-        [object[]]$WorkerArguments,
+        [hashtable]$WorkerArguments,
 
         [Parameter(Mandatory)]
         [int]$MaxParallel,
@@ -276,18 +285,51 @@ function Invoke-ConvertToVvcWorker {
             $Cmdlet.WriteVerbose(
                 "[$index/$($TargetFiles.Count)] Processing: $($file.Name)"
             )
-            $acc += (& $Worker $file @WorkerArguments)
+            $request = New-ConvertToVvcWorkerRequest -File $file `
+                -WorkerArguments $WorkerArguments
+            $acc += (& $Worker $request)
         }
         return $acc
     }
 
+    $requests = @(
+        foreach ($file in $TargetFiles) {
+            New-ConvertToVvcWorkerRequest -File $file `
+                -WorkerArguments $WorkerArguments
+        }
+    )
     $throttle = [math]::Max(1, $MaxParallel)
     $invokeParams = @{
         Parallel = $Worker
         ThrottleLimit = $throttle
-        ArgumentList = $WorkerArguments
     }
-    $TargetFiles | ForEach-Object @invokeParams
+    $requests | ForEach-Object @invokeParams
+}
+
+function New-ConvertToVvcWorkerRequest {
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [System.IO.FileInfo]$File,
+
+        [Parameter(Mandatory)]
+        [hashtable]$WorkerArguments
+    )
+
+    [pscustomobject]@{
+        File           = $File
+        OutputDir      = $WorkerArguments.OutputDir
+        Suffix         = $WorkerArguments.Suffix
+        Qp             = $WorkerArguments.Qp
+        Preset         = $WorkerArguments.Preset
+        Overwrite      = [bool]$WorkerArguments.Overwrite
+        VerifyMode     = $WorkerArguments.VerifyMode
+        MaxDriftSec    = $WorkerArguments.MaxDriftSec
+        ModulePath     = $WorkerArguments.ModulePath
+        FfmpegPath     = $WorkerArguments.FfmpegPath
+        FfprobePath    = $WorkerArguments.FfprobePath
+        EncoderThreads = $WorkerArguments.EncoderThreads
+    }
 }
 
 function Complete-ConvertToVvc {
@@ -304,6 +346,29 @@ function Complete-ConvertToVvc {
         foreach ($result in $Results) {
             if ($result -is [ConvertToVvcResult]) {
                 $result
+                continue
+            }
+
+            $requiredProperties = @(
+                'File',
+                'Ok',
+                'Skipped',
+                'Reason',
+                'OriginalMB',
+                'NewMB',
+                'Ratio'
+            )
+            $resultProperties = @(
+                if ($result -and $result.PSObject) {
+                    $result.PSObject.Properties.Name
+                }
+            )
+            $hasResultShape = @(
+                $requiredProperties |
+                    Where-Object { $_ -notin $resultProperties }
+            ).Count -eq 0
+
+            if (-not $hasResultShape) {
                 continue
             }
 

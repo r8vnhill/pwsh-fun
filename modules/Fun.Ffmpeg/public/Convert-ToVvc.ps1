@@ -100,6 +100,11 @@ Set-StrictMode -Version 3.0
 
     This value is used only by verification modes that perform a duration check.
 
+.PARAMETER EncoderThreads
+    Number of encoder threads passed to ffmpeg as `-threads`.
+
+    The default value of `0` preserves ffmpeg's automatic thread selection.
+
 .EXAMPLE
     Convert-ToVvc -InputDir 'D:\Videos' -OutputDir 'D:\Videos\vvc_out' -Recurse
 
@@ -180,7 +185,10 @@ function Convert-ToVvc {
         [string]$Verify = 'quick',
 
         [ValidateRange(0.0, 3600.0)]
-        [double]$MaxDrift = 1.5
+        [double]$MaxDrift = 1.5,
+
+        [ValidateRange(0, 1024)]
+        [int]$EncoderThreads = 0
     )
 
     # Prepare the run by resolving inputs, tools, and normalized extension state.
@@ -232,8 +240,10 @@ function Convert-ToVvc {
         Preset     = $Preset
         Overwrite  = $Overwrite.IsPresent
         FfmpegPath = $prep.ToolPaths.FfmpegPath
+        FfprobePath = $prep.ToolPaths.FfprobePath
         Verify     = $Verify
         MaxDrift   = $MaxDrift
+        EncoderThreads = $EncoderThreads
     }
     $workerArgs = Get-ConvertToVvcWorkerArguments @workerArgParams
 
