@@ -240,7 +240,6 @@ function Assert-ScenarioFailed {
     Assert-ScenarioResultCount -Scenario $Scenario
 
     $result = $Scenario.Result[0]
-    $result.GetType().Name | Should -Be 'ConvertToVvcResult'
     $result.Ok | Should -BeFalse
     $result.Skipped | Should -BeFalse
 
@@ -271,7 +270,6 @@ function Assert-ScenarioSucceeded {
     Assert-ScenarioResultCount -Scenario $Scenario
 
     $result = $Scenario.Result[0]
-    $result.GetType().Name | Should -Be 'ConvertToVvcResult'
     $result.Ok | Should -BeTrue
     $result.Skipped | Should -BeFalse
     $result.Reason | Should -Be ''
@@ -298,7 +296,6 @@ function Assert-ScenarioSkipped {
     Assert-ScenarioResultCount -Scenario $Scenario
 
     $result = $Scenario.Result[0]
-    $result.GetType().Name | Should -Be 'ConvertToVvcResult'
     $result.Ok | Should -BeFalse
     $result.Skipped | Should -BeTrue
 

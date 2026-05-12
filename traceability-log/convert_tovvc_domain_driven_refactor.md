@@ -453,7 +453,7 @@ If current `strict` only decodes a sample, preserve that behavior and avoid impl
 
 ## Test Plan
 
-### Phase 0: Importability Hotfix
+### ~~Phase 0: Importability Hotfix~~
 
 First test:
 
@@ -465,7 +465,7 @@ This must pass before deeper refactoring.
 
 Add a regression test for the `[OutputType]` placement bug if practical.
 
-### Phase 1: Characterization Tests
+### ~~Phase 1: Characterization Tests~~
 
 Before changing internals, capture current behavior at the user-visible scenario level.
 

@@ -2,7 +2,9 @@
 Set-StrictMode -Version 3.0
 
 function Get-ConvertToVvcWorkerScriptBlock {
-    [OutputType([scriptblock])]
+    [OutputType([ScriptBlock])]
+    param()
+
     {
         param($Request)
 
@@ -19,7 +21,7 @@ function Get-ConvertToVvcWorkerScriptBlock {
 
 function Invoke-FunFfmpegInternalVvcWorker {
     [CmdletBinding()]
-    [OutputType([psobject])]
+    [OutputType([PSObject])]
     param(
         [Parameter(Mandatory)]
         [pscustomobject]$Request
@@ -29,7 +31,7 @@ function Invoke-FunFfmpegInternalVvcWorker {
 }
 
 function Invoke-VvcConversionWorker {
-    [OutputType([psobject])]
+    [OutputType([PSObject])]
     param(
         [Parameter(Mandatory)]
         [pscustomobject]$Request
@@ -135,7 +137,7 @@ function Get-VvcFileSizeMB {
 }
 
 function New-VvcFailureResult {
-    [OutputType([psobject])]
+    [OutputType([PSObject])]
     param(
         [Parameter(Mandatory)]
         [string]$File,
@@ -151,7 +153,7 @@ function New-VvcFailureResult {
 }
 
 function New-VvcSkippedResult {
-    [OutputType([psobject])]
+    [OutputType([PSObject])]
     param(
         [Parameter(Mandatory)]
         [string]$File,
@@ -165,7 +167,7 @@ function New-VvcSkippedResult {
 }
 
 function New-VvcSuccessResult {
-    [OutputType([psobject])]
+    [OutputType([PSObject])]
     param(
         [Parameter(Mandatory)]
         [string]$File,
@@ -448,7 +450,7 @@ function Invoke-VvcEncode {
 }
 
 function Invoke-VvcConversionAttempt {
-    [OutputType([psobject])]
+    [OutputType([PSObject])]
     param(
         [Parameter(Mandatory)]
         [pscustomobject]$Request,

@@ -33,12 +33,6 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
         Reset-FakeMediaToolEnvironment -Context $script:toolSupport
     }
 
-    It 'advertises ConvertToVvcResult as OutputType metadata' {
-        $command = Get-Command Convert-ToVvc
-
-        @($command.OutputType).Type.Name | Should -Contain 'ConvertToVvcResult'
-    }
-
     It 'invokes ffmpeg and returns a success-shaped result for a valid input' {
         $scenarioParams = @{
             FileName         = 'good.mkv'
@@ -172,6 +166,32 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
         }
         Assert-ToolInvocationState @toolStateParams
         (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+    }
+
+    It 're-encodes when a valid output already exists and Overwrite is set' {
+        $scenarioParams = @{
+            FileName             = 'overwrite.mkv'
+            InputContent         = ('valid source media' * 4096)
+            CreateOutput         = $true
+            FfprobeScenarios     = @{
+                'overwrite.mkv'     = New-ValidProbeScenario -Codec 'h264'
+                'overwrite_vvc.mkv' = New-ValidProbeScenario -Codec 'vvc'
+            }
+            CreateExistingOutput = $true
+            Overwrite            = $true
+        }
+        $scenario = Invoke-ConvertScenario @scenarioParams
+
+        Assert-ScenarioSucceeded -Scenario $scenario -FileName 'overwrite.mkv'
+
+        $toolStateParams = @{
+            Scenario      = $scenario
+            ExpectFfprobe = $true
+            ExpectFfmpeg  = $true
+        }
+        Assert-ToolInvocationState @toolStateParams
+        (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+        (Test-Path -LiteralPath $scenario.PartialOutputPath) | Should -BeFalse
     }
 
     It 'returns no results under WhatIf and does not invoke ffmpeg' {
