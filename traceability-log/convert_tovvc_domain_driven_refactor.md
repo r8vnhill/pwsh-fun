@@ -482,7 +482,9 @@ Since the result contract is intentionally changing, characterize behavior as sc
 
 These tests can later be updated to assert `Status` and `Reason`.
 
-### Phase 2: Domain Invariant Tests
+### ~~Phase 2: Domain Invariant Tests~~
+
+Implemented in `traceability-log/phase_2_domain_invariant_tests.md`.
 
 Match the `VvcAudit.Tests.ps1` style.
 
