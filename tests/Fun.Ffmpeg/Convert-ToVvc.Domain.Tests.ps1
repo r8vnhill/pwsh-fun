@@ -1,13 +1,45 @@
+using module ..\..\modules\Fun.Ffmpeg\internal\ConvertToVvc.Types.psm1
+
 #Requires -Version 7.5
 #Requires -Modules Pester
 
-BeforeAll {
-    Import-Module -Name (
-        Join-Path $PSScriptRoot '..\..\modules\Fun.Ffmpeg\Fun.Ffmpeg.psd1'
-    ) -Force -ErrorAction Stop
-}
-
 Describe 'Convert-ToVvc domain invariants' {
+    Context 'VVC conversion enums' {
+        It 'defines the expected status names' {
+            [enum]::GetNames([VvcConversionStatus]) | Should -Be @(
+                'Converted'
+                'Skipped'
+                'Failed'
+            )
+        }
+
+        It 'defines the expected action names' {
+            [enum]::GetNames([VvcConversionAction]) | Should -Be @(
+                'Convert'
+                'Skip'
+                'Fail'
+            )
+        }
+
+        It 'defines the expected reason names' {
+            [enum]::GetNames([VvcConversionReason]) | Should -Be @(
+                'None'
+                'InvalidInput'
+                'ExistingOutputValid'
+                'EncodeFailed'
+                'EncodedOutputMissing'
+                'ProbeFailed'
+                'UnexpectedCodec'
+                'DurationUnavailable'
+                'DurationDrift'
+                'DecodeFailed'
+                'PromoteFailed'
+                'SizeUnavailable'
+                'UnexpectedFailure'
+            )
+        }
+    }
+
     Context 'ConvertToVvcResult' {
         It 'creates a converted result with enum-backed status and reason' {
             InModuleScope Fun.Ffmpeg {
@@ -37,7 +69,7 @@ Describe 'Convert-ToVvc domain invariants' {
                         'C:\videos\episode.mkv',
                         'C:\videos\episode_vvc.mkv',
                         [VvcConversionStatus]::Converted,
-                        [VvcConversionReason]::FfmpegFailed,
+                        [VvcConversionReason]::EncodeFailed,
                         100.0,
                         40.0,
                         0.4,
@@ -75,24 +107,24 @@ Describe 'Convert-ToVvc domain invariants' {
                 $skipped = [ConvertToVvcResult]::Skipped(
                     'episode.mkv',
                     'C:\videos\episode.mkv',
-                    [VvcConversionReason]::AlreadyExists,
+                    [VvcConversionReason]::ExistingOutputValid,
                     '  existing output is valid  '
                 )
                 $failed = [ConvertToVvcResult]::Failed(
                     'episode.mkv',
                     'C:\videos\episode.mkv',
-                    [VvcConversionReason]::FfmpegFailed,
+                    [VvcConversionReason]::EncodeFailed,
                     17,
                     '  ffmpeg failed  '
                 )
 
                 $skipped.Status.ToString() | Should -Be 'Skipped'
-                $skipped.Reason.ToString() | Should -Be 'AlreadyExists'
+                $skipped.Reason.ToString() | Should -Be 'ExistingOutputValid'
                 $skipped.Ok | Should -BeTrue
                 $skipped.Skipped | Should -BeTrue
                 $skipped.Diagnostic | Should -Be 'existing output is valid'
                 $failed.Status.ToString() | Should -Be 'Failed'
-                $failed.Reason.ToString() | Should -Be 'FfmpegFailed'
+                $failed.Reason.ToString() | Should -Be 'EncodeFailed'
                 $failed.Ok | Should -BeFalse
                 $failed.Skipped | Should -BeFalse
                 $failed.ExitCode | Should -Be 17
@@ -309,7 +341,7 @@ Describe 'Convert-ToVvc domain invariants' {
                 )
                 $invalid = [VvcOutputValidation]::new(
                     $false,
-                    [VvcConversionReason]::VerificationFailed,
+                    [VvcConversionReason]::DecodeFailed,
                     $null,
                     ' decode failed '
                 )
@@ -317,14 +349,14 @@ Describe 'Convert-ToVvc domain invariants' {
                 $valid.Reason.ToString() | Should -Be 'None'
                 $valid.DurationDriftSec | Should -Be 0.4
                 $valid.Diagnostic | Should -BeNullOrEmpty
-                $invalid.Reason.ToString() | Should -Be 'VerificationFailed'
+                $invalid.Reason.ToString() | Should -Be 'DecodeFailed'
                 $invalid.Diagnostic | Should -Be 'decode failed'
             }
         }
 
         It 'rejects contradictory validation states' {
             InModuleScope Fun.Ffmpeg {
-                { [VvcOutputValidation]::new($true, [VvcConversionReason]::VerificationFailed, 0.1, '') } |
+                { [VvcOutputValidation]::new($true, [VvcConversionReason]::DecodeFailed, 0.1, '') } |
                     Should -Throw -ExceptionType ([VvcConversionInvariantException])
                 { [VvcOutputValidation]::new($false, [VvcConversionReason]::None, 0.1, '') } |
                     Should -Throw -ExceptionType ([VvcConversionInvariantException])
@@ -341,7 +373,7 @@ Describe 'Convert-ToVvc domain invariants' {
                 $skipResult = [ConvertToVvcResult]::Skipped(
                     'episode.mkv',
                     'C:\videos\episode.mkv',
-                    [VvcConversionReason]::AlreadyExists,
+                    [VvcConversionReason]::ExistingOutputValid,
                     $null
                 )
                 $failResult = [ConvertToVvcResult]::Failed(
@@ -352,7 +384,7 @@ Describe 'Convert-ToVvc domain invariants' {
                     'invalid'
                 )
                 $skip = [VvcConversionDecision]::Skip(
-                    [VvcConversionReason]::AlreadyExists,
+                    [VvcConversionReason]::ExistingOutputValid,
                     $skipResult
                 )
                 $fail = [VvcConversionDecision]::Fail(
@@ -375,14 +407,14 @@ Describe 'Convert-ToVvc domain invariants' {
                 $result = [ConvertToVvcResult]::Skipped(
                     'episode.mkv',
                     'C:\videos\episode.mkv',
-                    [VvcConversionReason]::AlreadyExists,
+                    [VvcConversionReason]::ExistingOutputValid,
                     $null
                 )
 
                 {
                     [VvcConversionDecision]::new(
                         [VvcConversionAction]::Convert,
-                        [VvcConversionReason]::AlreadyExists,
+                        [VvcConversionReason]::ExistingOutputValid,
                         $null,
                         $null
                     )

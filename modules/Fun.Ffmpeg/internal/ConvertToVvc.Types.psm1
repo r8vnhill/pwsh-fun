@@ -20,16 +20,18 @@ enum VvcConversionAction {
 
 enum VvcConversionReason {
     None
-    AlreadyExists
     InvalidInput
+    ExistingOutputValid
+    EncodeFailed
+    EncodedOutputMissing
     ProbeFailed
-    UnsupportedCodec
-    FfmpegFailed
-    VerificationFailed
-    OutputMissing
+    UnexpectedCodec
+    DurationUnavailable
+    DurationDrift
+    DecodeFailed
+    PromoteFailed
     SizeUnavailable
-    WhatIf
-    ExtensionFiltered
+    UnexpectedFailure
 }
 
 class VvcConversionGuard {
