@@ -40,6 +40,14 @@ Describe 'Convert-ToVvc domain invariants' {
         }
     }
 
+    Context 'VvcConversionInvariantException' {
+        It 'can be thrown and matched by exact exception type' {
+            {
+                throw [VvcConversionInvariantException]::new('Invalid state')
+            } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
+        }
+    }
+
     Context 'ConvertToVvcResult' {
         It 'creates a converted result with enum-backed status and reason' {
             InModuleScope Fun.Ffmpeg {

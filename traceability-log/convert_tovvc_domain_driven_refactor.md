@@ -119,7 +119,7 @@ Enum tests pass without touching `Convert-ToVvc`.
 
 ---
 
-## Cycle 2 — Add Invariant Exception
+## ~~Cycle 2 — Add Invariant Exception~~
 
 **Goal:** Create one explicit exception type for impossible domain states.
 
@@ -152,6 +152,10 @@ Use this exception only for programming/domain invariant failures, not normal ff
 **Done when**
 
 The exception type is directly testable.
+
+**Completed**
+
+Covered by `traceability-log/cycle_2_verify_vvcconversioninvariantexception.md`.
 
 ---
 
