@@ -84,19 +84,7 @@ class VvcConversionRequest {
     [string]$FfprobePath
     [int]$EncoderThreads
 
-    VvcConversionRequest(
-        [string]$InputPath,
-        [string]$OutputDir,
-        [string]$Suffix,
-        [int]$Qp,
-        [string]$Preset,
-        [bool]$Overwrite,
-        [string]$VerifyMode,
-        [double]$MaxDriftSec,
-        [string]$FfmpegPath,
-        [string]$FfprobePath,
-        [int]$EncoderThreads
-    ) {
+    VvcConversionRequest([string]$InputPath, [string]$OutputDir, [string]$Suffix, [int]$Qp, [string]$Preset, [bool]$Overwrite, [string]$VerifyMode, [double]$MaxDriftSec, [string]$FfmpegPath, [string]$FfprobePath, [int]$EncoderThreads) {
         [VvcConversionGuard]::Invariant($Qp -ge 0 -and $Qp -le 63, 'Qp must be between 0 and 63.')
         [VvcConversionGuard]::Invariant($VerifyMode -in @('none', 'quick', 'strict'), 'VerifyMode is invalid.')
         [VvcConversionGuard]::Invariant($MaxDriftSec -ge 0.0, 'MaxDriftSec cannot be negative.')

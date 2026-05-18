@@ -159,7 +159,7 @@ Covered by `traceability-log/cycle_2_verify_vvcconversioninvariantexception.md`.
 
 ---
 
-## Cycle 3 — Add `VvcNativeResult`
+## ~~Cycle 3 — Add `VvcNativeResult`~~
 
 **Goal:** Model native process output before writing the process wrapper.
 
@@ -202,7 +202,7 @@ No native process is invoked yet.
 
 ---
 
-## Cycle 4 — Add `VvcConversionPathSet`
+## ~~Cycle 4 — Add `VvcConversionPathSet`~~
 
 **Goal:** Make path safety rules testable before worker changes.
 
@@ -248,9 +248,13 @@ Path invariants are enforced independently of filesystem existence.
 
 ---
 
-## Cycle 5 — Add `VvcConversionRequest`
+## ~~Cycle 5 — Add `VvcConversionRequest`~~
 
 **Goal:** Capture worker input as a validated object.
+
+**Completed**
+
+Implemented in `modules/Fun.Ffmpeg/internal/ConvertToVvc.Types.psm1` and covered by `tests/Fun.Ffmpeg/Convert-ToVvc.Domain.Tests.ps1`.
 
 **Red**
 
@@ -258,8 +262,11 @@ Test invalid construction cases:
 
 ```powershell
 Describe 'VvcConversionRequest' {
-    It 'rejects null file' {}
+    It 'rejects blank input' {}
+    It 'rejects blank output' {}
     It 'rejects blank suffix' {}
+    It 'rejects blank preset' {}
+    It 'rejects invalid qp' {}
     It 'rejects unsupported verify mode' {}
     It 'rejects negative max drift' {}
     It 'rejects negative encoder threads' {}
@@ -270,7 +277,19 @@ Describe 'VvcConversionRequest' {
 
 **Green**
 
-Implement the request class with minimal properties needed by the current worker.
+Implement the request class with the current worker-facing boundary:
+
+* `InputPath`
+* `OutputDir`
+* `Suffix`
+* `Qp`
+* `Preset`
+* `Overwrite`
+* `VerifyMode`
+* `MaxDriftSec`
+* `FfmpegPath`
+* `FfprobePath`
+* `EncoderThreads`
 
 **Refactor**
 
@@ -278,7 +297,7 @@ Keep constructor validation short. Prefer private static guard methods if needed
 
 **Done when**
 
-A valid request can be created in tests, but the public command still need not use it.
+A valid request can be created in tests, the constructor rejects invalid state, and the public command still need not use it.
 
 ---
 
