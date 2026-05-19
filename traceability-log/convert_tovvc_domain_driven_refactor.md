@@ -1,6 +1,6 @@
 # [PLAN] Convert-ToVvc Domain Refactor as Short TDD Cycles
 
-## Cycle 0 — Restore Importability
+## ~~Cycle 0 — Restore Importability~~
 
 **Goal:** Make the module importable before any refactor work.
 
@@ -301,9 +301,18 @@ A valid request can be created in tests, the constructor rejects invalid state, 
 
 ---
 
-## Cycle 6 — Add `VvcMediaProbe`
+## ~~Cycle 6 — Add `VvcMediaProbe`~~
 
 **Goal:** Represent ffprobe interpretation without calling ffprobe yet.
+
+**Completed**
+
+Implemented in `modules/Fun.Ffmpeg/internal/ConvertToVvc.Types.psm1` and covered by the focused
+`VvcMediaProbe` context in `tests/Fun.Ffmpeg/Convert-ToVvc.Domain.Tests.ps1`.
+
+The implemented contract keeps `Valid`, `Reason`, `Codec`, `DurationSec`, and `Diagnostic`. Successful probes require
+`Reason = None` and a nonblank codec. Failed probes require a non-`None` reason. Optional strings are trimmed and blank
+values normalize to `$null`; nullable duration remains `$null` only when absent and rejects negative values.
 
 **Red**
 
@@ -311,9 +320,9 @@ Test:
 
 ```powershell
 Describe 'VvcMediaProbe' {
-    It 'can represent a successful probe' {}
-    It 'can represent a failed probe with a diagnostic' {}
-    It 'rejects blank diagnostics on failed probes' {}
+    It 'represents successful and failed probe states' {}
+    It 'normalizes codec and diagnostic strings' {}
+    It 'rejects contradictory probe states' {}
     It 'rejects negative duration' {}
 }
 ```
@@ -324,7 +333,7 @@ Implement `VvcMediaProbe`.
 
 **Refactor**
 
-Decide whether failed probe state is represented by `Succeeded = $false` or by a separate result factory.
+Keep the current `Valid` property and the `Codec` / `DurationSec` naming used by the implementation.
 
 **Done when**
 

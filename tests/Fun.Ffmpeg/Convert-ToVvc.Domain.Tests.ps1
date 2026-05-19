@@ -4,6 +4,10 @@ using module ..\..\modules\Fun.Ffmpeg\internal\ConvertToVvc.Types.psm1
 #Requires -Modules Pester
 
 Describe 'Convert-ToVvc domain invariants' {
+    BeforeAll {
+        Import-Module "$PSScriptRoot/../../modules/Fun.Ffmpeg/Fun.Ffmpeg.psd1" -Force
+    }
+
     Context 'VVC conversion enums' {
         It 'defines the expected status names' {
             [enum]::GetNames([VvcConversionStatus]) | Should -Be @(
@@ -301,40 +305,83 @@ Describe 'Convert-ToVvc domain invariants' {
     }
 
     Context 'VvcMediaProbe' {
-        It 'models valid and invalid probe states with enum-backed reasons' {
+        It 'accepts a valid probe with interpreted media facts' {
             InModuleScope Fun.Ffmpeg {
                 $valid = [VvcMediaProbe]::new(
                     $true,
                     [VvcConversionReason]::None,
-                    ' vvc ',
+                    'vvc',
                     120.5,
-                    ' '
-                )
-                $invalid = [VvcMediaProbe]::new(
-                    $false,
-                    [VvcConversionReason]::ProbeFailed,
-                    '',
-                    $null,
-                    ' failed '
+                    'Yorozuya probe ok'
                 )
 
+                $valid.Valid | Should -BeTrue
                 $valid.Reason.GetType().Name | Should -Be 'VvcConversionReason'
                 $valid.Reason.ToString() | Should -Be 'None'
                 $valid.Codec | Should -Be 'vvc'
-                $valid.Diagnostic | Should -BeNullOrEmpty
-                $invalid.Reason.ToString() | Should -Be 'ProbeFailed'
-                $invalid.Diagnostic | Should -Be 'failed'
+                $valid.DurationSec | Should -Be 120.5
+                $valid.Diagnostic | Should -Be 'Yorozuya probe ok'
             }
         }
 
-        It 'rejects contradictory probe states' {
+        It 'normalizes valid probe strings without probing media' {
+            InModuleScope Fun.Ffmpeg {
+                $valid = [VvcMediaProbe]::new(
+                    $true,
+                    [VvcConversionReason]::None,
+                    '  hevc  ',
+                    $null,
+                    '  Yorozuya probe ok  '
+                )
+
+                $valid.Codec | Should -Be 'hevc'
+                $valid.DurationSec | Should -BeNullOrEmpty
+                $valid.Diagnostic | Should -Be 'Yorozuya probe ok'
+            }
+        }
+
+        It 'accepts a failed probe with normalized optional details' {
+            InModuleScope Fun.Ffmpeg {
+                $invalid = [VvcMediaProbe]::new(
+                    $false,
+                    [VvcConversionReason]::ProbeFailed,
+                    ' ',
+                    $null,
+                    '  ffprobe failed  '
+                )
+
+                $invalid.Valid | Should -BeFalse
+                $invalid.Reason.GetType().Name | Should -Be 'VvcConversionReason'
+                $invalid.Reason.ToString() | Should -Be 'ProbeFailed'
+                $invalid.Codec | Should -BeNullOrEmpty
+                $invalid.DurationSec | Should -BeNullOrEmpty
+                $invalid.Diagnostic | Should -Be 'ffprobe failed'
+            }
+        }
+
+        It 'rejects a valid probe with a non-None reason' {
             InModuleScope Fun.Ffmpeg {
                 { [VvcMediaProbe]::new($true, [VvcConversionReason]::ProbeFailed, 'vvc', 1.0, '') } |
                     Should -Throw -ExceptionType ([VvcConversionInvariantException])
-                { [VvcMediaProbe]::new($false, [VvcConversionReason]::None, '', $null, '') } |
-                    Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
+
+        It 'rejects a valid probe with blank codec' {
+            InModuleScope Fun.Ffmpeg {
                 { [VvcMediaProbe]::new($true, [VvcConversionReason]::None, '', 1.0, '') } |
                     Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
+
+        It 'rejects a failed probe with Reason None' {
+            InModuleScope Fun.Ffmpeg {
+                { [VvcMediaProbe]::new($false, [VvcConversionReason]::None, '', $null, '') } |
+                    Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
+
+        It 'rejects negative duration' {
+            InModuleScope Fun.Ffmpeg {
                 { [VvcMediaProbe]::new($true, [VvcConversionReason]::None, 'vvc', -1.0, '') } |
                     Should -Throw -ExceptionType ([VvcConversionInvariantException])
             }
