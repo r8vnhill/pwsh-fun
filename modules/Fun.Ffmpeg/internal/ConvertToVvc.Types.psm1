@@ -203,10 +203,18 @@ class VvcOutputValidation {
             [VvcConversionGuard]::Invariant($Reason -ne [VvcConversionReason]::None, 'Invalid output validation requires an explicit reason.')
         }
 
+        $normalizedDiagnostic = [VvcConversionGuard]::OptionalString($Diagnostic)
+        if (-not $Valid) {
+            [VvcConversionGuard]::Invariant(
+                -not [string]::IsNullOrWhiteSpace($normalizedDiagnostic),
+                'Invalid output validation requires a diagnostic.'
+            )
+        }
+
         $this.Valid = $Valid
         $this.Reason = $Reason
         $this.DurationDriftSec = [VvcConversionGuard]::OptionalNonNegativeDouble($DurationDriftSec, 'DurationDriftSec')
-        $this.Diagnostic = [VvcConversionGuard]::OptionalString($Diagnostic)
+        $this.Diagnostic = $normalizedDiagnostic
     }
 }
 

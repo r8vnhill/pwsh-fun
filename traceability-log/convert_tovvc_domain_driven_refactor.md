@@ -1,6 +1,8 @@
-# [PLAN] Convert-ToVvc Domain Refactor as Short TDD Cycles
+# [PLAN] Convert-ToVvc Domain Refactor by Phase
 
-## ~~Cycle 0 — Restore Importability~~
+## ~~Phase 0 — Baseline Stabilization~~
+
+### ~~Cycle 0 — Restore Importability~~
 
 **Goal:** Make the module importable before any refactor work.
 
@@ -43,9 +45,11 @@ Invoke-Pester -Path tests/Fun.Ffmpeg
 
 passes.
 
----
+----
 
-## ~~Cycle 1 — Add Conversion Enums~~
+## Phase 1 — Domain Model Foundation
+
+### ~~Cycle 1 — Add Conversion Enums~~
 
 **Goal:** Introduce stable machine-readable status, reason, and action values.
 
@@ -117,9 +121,7 @@ Keep enum names aligned with `VvcAudit` / `VvcRemoval` style.
 
 Enum tests pass without touching `Convert-ToVvc`.
 
----
-
-## ~~Cycle 2 — Add Invariant Exception~~
+### ~~Cycle 2 — Add Invariant Exception~~
 
 **Goal:** Create one explicit exception type for impossible domain states.
 
@@ -157,9 +159,7 @@ The exception type is directly testable.
 
 Covered by `traceability-log/cycle_2_verify_vvcconversioninvariantexception.md`.
 
----
-
-## ~~Cycle 3 — Add `VvcNativeResult`~~
+### ~~Cycle 3 — Add `VvcNativeResult`~~
 
 **Goal:** Model native process output before writing the process wrapper.
 
@@ -200,9 +200,7 @@ Normalize `$null` stdout/stderr to empty strings, if that is the preferred contr
 
 No native process is invoked yet.
 
----
-
-## ~~Cycle 4 — Add `VvcConversionPathSet`~~
+### ~~Cycle 4 — Add `VvcConversionPathSet`~~
 
 **Goal:** Make path safety rules testable before worker changes.
 
@@ -246,9 +244,7 @@ Extract small private guard helpers if constructors get noisy.
 
 Path invariants are enforced independently of filesystem existence.
 
----
-
-## ~~Cycle 5 — Add `VvcConversionRequest`~~
+### ~~Cycle 5 — Add `VvcConversionRequest`~~
 
 **Goal:** Capture worker input as a validated object.
 
@@ -299,9 +295,7 @@ Keep constructor validation short. Prefer private static guard methods if needed
 
 A valid request can be created in tests, the constructor rejects invalid state, and the public command still need not use it.
 
----
-
-## ~~Cycle 6 — Add `VvcMediaProbe`~~
+### ~~Cycle 6 — Add `VvcMediaProbe`~~
 
 **Goal:** Represent ffprobe interpretation without calling ffprobe yet.
 
@@ -341,9 +335,18 @@ Probe state is expressible without infrastructure.
 
 ---
 
-## Cycle 7 — Add `VvcOutputValidation`
+### ~~Cycle 7 — Add `VvcOutputValidation`~~
 
 **Goal:** Represent output validation results independently of ffmpeg/ffprobe.
+
+**Completed**
+
+Implemented in `modules/Fun.Ffmpeg/internal/ConvertToVvc.Types.psm1` and covered by the focused
+`VvcOutputValidation` context in `tests/Fun.Ffmpeg/Convert-ToVvc.Domain.Tests.ps1`.
+
+The completed contract keeps valid-output diagnostics optional while requiring nonblank diagnostics for invalid output.
+Diagnostics are trimmed, blank diagnostics normalize to `$null` only for valid output, and no filesystem or native
+process behavior is introduced.
 
 **Red**
 
@@ -375,9 +378,7 @@ Use factory methods if the constructor becomes hard to read:
 
 Validation outcomes are domain-only.
 
----
-
-## Cycle 8 — Add `ConvertToVvcResult` Factories
+### Cycle 8 — Add `ConvertToVvcResult` Factories
 
 **Goal:** Make result construction invariant-checked and centralized.
 
@@ -422,9 +423,11 @@ Prevent ad hoc result creation. Make constructors private if feasible; otherwise
 
 Tests only construct results through factories.
 
----
+----
 
-## Cycle 9 — Add Pure Decision Type
+## Phase 2 — Pure Decision Logic
+
+### Cycle 9 — Add Pure Decision Type
 
 **Goal:** Separate “what should happen?” from side effects.
 
@@ -458,9 +461,7 @@ Use factories:
 
 Decision state is impossible to misuse.
 
----
-
-## Cycle 10 — Add Existing Output Decision Tests
+### Cycle 10 — Add Existing Output Decision Tests
 
 **Goal:** Test conversion decision logic without fake native tools.
 
@@ -513,9 +514,7 @@ Keep it free of filesystem calls. Pass in facts, not paths.
 
 Existing output behavior is decided by pure logic.
 
----
-
-## Cycle 11 — Add Input Probe Decision Tests
+### Cycle 11 — Add Input Probe Decision Tests
 
 **Goal:** Map input probe outcomes to decisions.
 
@@ -548,9 +547,11 @@ Choose one reason consistently:
 
 Probe failures no longer require ad hoc string mapping.
 
----
+----
 
-## Cycle 12 — Add Native Wrapper Contract
+## Phase 3 — Infrastructure Boundaries
+
+### Cycle 12 — Add Native Wrapper Contract
 
 **Goal:** Route native execution through one tested boundary.
 
@@ -596,9 +597,7 @@ Avoid direct `ffmpeg` / `ffprobe` calls outside this function.
 
 A static grep can find no new direct native invocations except fixtures and this wrapper.
 
----
-
-## Cycle 13 — Route ffprobe Through Native Wrapper
+### Cycle 13 — Route ffprobe Through Native Wrapper
 
 **Goal:** Convert probing helpers to use `Invoke-NativeTool`.
 
@@ -627,9 +626,7 @@ Return `VvcMediaProbe`, not loose objects.
 
 Probe behavior is covered through fake tools and has typed outcomes.
 
----
-
-## Cycle 14 — Add ffmpeg Argument Generation
+### Cycle 14 — Add ffmpeg Argument Generation
 
 **Goal:** Make encode command construction deterministic and testable.
 
@@ -659,9 +656,7 @@ Keep argument generation independent from invocation.
 
 The worker no longer assembles ffmpeg args inline.
 
----
-
-## Cycle 15 — Route Encoding Through Native Wrapper
+### Cycle 15 — Route Encoding Through Native Wrapper
 
 **Goal:** Replace direct ffmpeg invocation with typed native result.
 
@@ -693,9 +688,7 @@ Do not promote output in the encode helper. Encoding only writes temp output.
 
 ffmpeg is invoked in exactly one place through `Invoke-NativeTool`.
 
----
-
-## Cycle 16 — Add Temp Path Generation
+### Cycle 16 — Add Temp Path Generation
 
 **Goal:** Create safe GUID temp output paths.
 
@@ -724,9 +717,11 @@ Ensure temp path is generated once and passed through the conversion attempt.
 
 No helper recalculates temp output independently.
 
----
+----
 
-## Cycle 17 — Add Conversion Attempt Success Path
+## Phase 4 — Conversion Attempt Lifecycle
+
+### Cycle 17 — Add Conversion Attempt Success Path
 
 **Goal:** Implement the first vertical slice of the conversion attempt.
 
@@ -761,9 +756,7 @@ Extract filesystem operations only when duplication appears.
 
 One complete successful conversion path works with fake tools/files.
 
----
-
-## Cycle 18 — Add Conversion Attempt Failure Paths
+### Cycle 18 — Add Conversion Attempt Failure Paths
 
 **Goal:** Make terminal failure mapping explicit.
 
@@ -791,9 +784,7 @@ Centralize failure result construction.
 
 Every failure path returns `Status = Failed` and a non-`None` reason.
 
----
-
-## Cycle 19 — Add Temp Cleanup Guarantees
+### Cycle 19 — Add Temp Cleanup Guarantees
 
 **Goal:** Prevent stale temp outputs.
 
@@ -820,9 +811,11 @@ Keep cleanup logic small and path-safe.
 
 Only temp paths are deleted.
 
----
+----
 
-## Cycle 20 — Add Application Service
+## Phase 5 — Application and Worker Integration
+
+### Cycle 20 — Add Application Service
 
 **Goal:** Coordinate the full conversion lifecycle outside the parallel scriptblock.
 
@@ -864,9 +857,7 @@ Keep it as orchestration only. No direct native or filesystem details beyond hel
 
 `Invoke-VvcConversion` can be tested with mocks/fakes.
 
----
-
-## Cycle 21 — Add Internal Worker Entrypoint
+### Cycle 21 — Add Internal Worker Entrypoint
 
 **Goal:** Create the stable parallel-runspace boundary.
 
@@ -906,9 +897,7 @@ Keep it intentionally boring.
 
 The function is callable after module import.
 
----
-
-## Cycle 22 — Thin the Parallel Scriptblock
+### Cycle 22 — Thin the Parallel Scriptblock
 
 **Goal:** Remove conversion lifecycle logic from the parallel worker.
 
@@ -939,9 +928,7 @@ Delete duplicated logic from the scriptblock only after tests pass.
 
 Parallel behavior still works and the scriptblock is tiny.
 
----
-
-## Cycle 23 — Wire Public Command to Request Object
+### Cycle 23 — Wire Public Command to Request Object
 
 **Goal:** Make `Convert-ToVvc` construct `VvcConversionRequest`.
 
@@ -983,9 +970,11 @@ Get-ConvertToVvcWorkerArguments
 
 The public command no longer passes loosely typed worker state.
 
----
+----
 
-## Cycle 24 — Migrate Public Result Assertions
+## Phase 6 — Public Result Contract Migration
+
+### Cycle 24 — Migrate Public Result Assertions
 
 **Goal:** Switch tests from legacy fields to `Status` and `Reason`.
 
@@ -1016,9 +1005,7 @@ Remove string reason comparisons from new tests.
 
 Scenario tests use enum-backed contract.
 
----
-
-## Cycle 25 — Decide Compatibility Properties
+### Cycle 25 — Decide Compatibility Properties
 
 **Goal:** Finalize `Ok` and `Skipped`.
 
@@ -1058,9 +1045,11 @@ Remove all internal use of `Ok` / `Skipped`.
 
 The result contract is intentional and documented.
 
----
+----
 
-## Cycle 26 — Remove Legacy Worker Logic
+## Phase 7 — Architecture Cleanup and Release
+
+### Cycle 26 — Remove Legacy Worker Logic
 
 **Goal:** Delete the here-string/generated worker path.
 
@@ -1087,9 +1076,7 @@ Clean up dead helpers and unused parameters.
 
 There is one conversion pipeline.
 
----
-
-## Cycle 27 — Add Quality Gate Tests
+### Cycle 27 — Add Quality Gate Tests
 
 **Goal:** Prevent regression to the old architecture.
 
@@ -1116,9 +1103,7 @@ Keep these tests coarse but useful.
 
 Architecture rules fail loudly.
 
----
-
-## Cycle 28 — Update Version and Migration Notes
+### Cycle 28 — Update Version and Migration Notes
 
 **Goal:** Complete the breaking-change packaging work.
 
@@ -1151,8 +1136,6 @@ Mention that `Status` and `Reason` are authoritative.
 **Done when**
 
 Versioning reflects the result-contract break.
-
----
 
 # Recommended Commit Shape
 
