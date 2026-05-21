@@ -19,7 +19,9 @@ BeforeAll {
 }
 
 AfterAll {
-    Restore-FakeMediaToolSupport -Context $script:toolSupport
+    if ($script:toolSupport) {
+        Restore-FakeMediaToolSupport -Context $script:toolSupport
+    }
 }
 
 Describe 'Convert-ToVvc input validation' -Tag 'integration' {
@@ -33,54 +35,56 @@ Describe 'Convert-ToVvc input validation' -Tag 'integration' {
         Reset-FakeMediaToolEnvironment -Context $script:toolSupport
     }
 
-    It 'fails early for invalid inputs without invoking ffmpeg' -ForEach @(
-        @{
-            Name                  = 'corrupt container'
-            FileName              = 'broken.mkv'
-            InputContent          = ('not a real matroska file' * 2048)
-            CreateEmptyFile       = $false
-            FfprobeScenarios      = @{
-                'broken.mkv' = @{
-                    ProbeFailMessage = '[in#0 @ 0000000000000000] EBML header parsing failed'
+    Context 'when inputs are invalid' {
+        It 'fails early without invoking ffmpeg' -ForEach @(
+            @{
+                Name                  = 'corrupt container'
+                FileName              = 'broken.mkv'
+                InputContent          = ('not a real matroska file' * 2048)
+                CreateEmptyFile       = $false
+                FfprobeScenarios      = @{
+                    'broken.mkv' = @{
+                        ProbeFailMessage = '[in#0 @ 0000000000000000] EBML header parsing failed'
+                    }
                 }
+                ExpectedReasonPattern = 'EBML header parsing failed'
+                ExpectFfprobeInvoked  = $true
+                ExpectedOriginalMb    = 'positive'
             }
-            ExpectedReasonPattern = 'EBML header parsing failed'
-            ExpectFfprobeInvoked  = $true
-            ExpectedOriginalMb    = 'positive'
-        }
-        @{
-            Name                  = 'empty file'
-            FileName              = 'empty.mkv'
-            CreateEmptyFile       = $true
-            FfprobeScenarios      = @{}
-            ExpectedReasonPattern = '^invalid input: input file is empty\.$'
-            ExpectFfprobeInvoked  = $false
-            ExpectedOriginalMb    = 'zero'
-        }
-    ) {
-        $scenarioParams = @{
-            FileName         = $FileName
-            InputContent     = $InputContent
-            CreateEmptyFile  = $CreateEmptyFile
-            FfprobeScenarios = $FfprobeScenarios
-        }
-        $scenario = Invoke-ConvertScenario @scenarioParams
+            @{
+                Name                  = 'empty file'
+                FileName              = 'empty.mkv'
+                CreateEmptyFile       = $true
+                FfprobeScenarios      = @{}
+                ExpectedReasonPattern = '^invalid input: input file is empty\.$'
+                ExpectFfprobeInvoked  = $false
+                ExpectedOriginalMb    = 'zero'
+            }
+        ) {
+            $scenarioParams = @{
+                FileName         = $FileName
+                InputContent     = $InputContent
+                CreateEmptyFile  = $CreateEmptyFile
+                FfprobeScenarios = $FfprobeScenarios
+            }
+            $scenario = Invoke-ConvertScenario @scenarioParams
 
-        $failParams = @{
-            Scenario      = $scenario
-            ReasonPattern = '^invalid input: '
-            FileName      = $FileName
-            OriginalMb    = $ExpectedOriginalMb
-        }
-        Assert-ScenarioFailed @failParams
-        $scenario.Result[0].Reason | Should -Match $ExpectedReasonPattern
+            $failParams = @{
+                Scenario      = $scenario
+                ReasonPattern = '^invalid input: '
+                FileName      = $FileName
+                OriginalMb    = $ExpectedOriginalMb
+            }
+            Assert-ScenarioFailed @failParams
+            $scenario.Result[0].Reason | Should -Match $ExpectedReasonPattern
 
-        $toolStateParams = @{
-            Scenario      = $scenario
-            ExpectFfprobe = $ExpectFfprobeInvoked
-            ExpectFfmpeg  = $false
+            $toolStateParams = @{
+                Scenario      = $scenario
+                ExpectFfprobe = $ExpectFfprobeInvoked
+                ExpectFfmpeg  = $false
+            }
+            Assert-ToolInvocationState @toolStateParams
+            (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeFalse
         }
-        Assert-ToolInvocationState @toolStateParams
-        (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeFalse
     }
 }
