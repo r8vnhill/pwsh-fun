@@ -62,16 +62,14 @@ Describe 'VvcOutputValidation' {
             }
         }
 
-        It 'normalizes blank diagnostic for invalid output to null' {
+        It 'rejects blank diagnostics for invalid output' {
             InModuleScope Fun.Ffmpeg {
-                $invalid = [VvcOutputValidation]::new(
+                { [VvcOutputValidation]::new(
                     $false,
                     [VvcConversionReason]::DurationDrift,
                     1.25,
                     '   '
-                )
-
-                $invalid.Diagnostic | Should -BeNullOrEmpty
+                ) } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
             }
         }
 

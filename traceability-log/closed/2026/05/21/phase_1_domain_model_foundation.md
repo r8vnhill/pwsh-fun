@@ -1,4 +1,4 @@
-# [PLAN] Phase 1 — Domain Model Foundation
+# [DONE] Phase 1 — Domain Model Foundation
 
 ## Summary
 
@@ -19,8 +19,8 @@ The phase should end with a complete set of invariant-checked domain types that 
 - output-validation value object
 - final conversion-result factories
 
-Cycles 1–7 are implemented or verified in the current branch. The remaining Phase 1 work should therefore focus on
-**Cycle 8: `ConvertToVvcResult` factories**, plus a final consistency pass over the domain suite.
+Cycles 1–8 are implemented or verified in the current branch. Phase 1 now ends with traceability cleanup and a final
+consistency pass over the domain suite.
 
 ## Scope
 
@@ -67,13 +67,13 @@ Those belong to later phases.
 |     5 | `VvcConversionRequest`                                              | Complete / verify only |
 |     6 | `VvcMediaProbe`                                                     | Complete / verify only |
 |     7 | `VvcOutputValidation`                                               | Complete               |
-|     8 | `ConvertToVvcResult` factories                                      | Remaining              |
+|     8 | `ConvertToVvcResult` factories                                      | Complete               |
 
 This keeps Phase 1 honest: most of it is contract verification; the remaining implementation work is Cycle 8.
 
 ---
 
-## Step 1 — Stabilize the Domain Test Loading Model
+## [✔️] Step 1 — Stabilize the Domain Test Loading Model
 
 PowerShell classes and enums need parse-time visibility when tests reference them with type literals like:
 
@@ -101,7 +101,7 @@ file is parsed.
 
 ---
 
-## Step 2 — Verify the Existing Baseline Domain Contracts
+## [✔️] Step 2 — Verify the Existing Baseline Domain Contracts
 
 Keep the existing contracts stable:
 
@@ -145,7 +145,7 @@ Do not rename or remove enum members in Phase 1. Later phases can decide whether
 
 ---
 
-## Step 3 — Verify Existing Value Objects
+## [✔️] Step 3 — Verify Existing Value Objects
 
 Keep these as constructor-validated, side-effect-free contracts:
 
@@ -190,7 +190,7 @@ Use Gintama-themed fake diagnostics in new tests where sample text is needed, fo
 
 ---
 
-## Step 4 — Cycle 7: Add `VvcOutputValidation`
+## [✔️] Step 4 — Cycle 7: Add `VvcOutputValidation`
 
 ### Goal
 
@@ -270,7 +270,7 @@ Use Gintama-themed diagnostics where useful:
 
 ---
 
-## Step 5 — Cycle 8: Add `ConvertToVvcResult` Factories
+## [✔️] Step 5 — Cycle 8: Add `ConvertToVvcResult` Factories
 
 ### Goal
 

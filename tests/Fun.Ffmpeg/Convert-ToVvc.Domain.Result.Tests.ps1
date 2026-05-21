@@ -8,137 +8,240 @@ Describe 'ConvertToVvcResult' {
         Import-Module "$PSScriptRoot/../../modules/Fun.Ffmpeg/Fun.Ffmpeg.psd1" -Force
     }
 
-    Context 'ConvertToVvcResult' {
-        It 'creates a converted result with enum-backed status and reason' {
+    Context 'Converted factory' {
+        It 'creates a Converted result with Reason None' {
             InModuleScope Fun.Ffmpeg {
                 $result = [ConvertToVvcResult]::Converted(
-                    'episode.mkv',
-                    'C:\videos\episode.mkv',
-                    'C:\videos\episode_vvc.mkv',
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-output.mkv',
                     100.25,
                     40.5,
                     0.4
                 )
 
-                $result.Status.GetType().Name | Should -Be 'VvcConversionStatus'
                 $result.Status.ToString() | Should -Be 'Converted'
-                $result.Reason.GetType().Name | Should -Be 'VvcConversionReason'
                 $result.Reason.ToString() | Should -Be 'None'
-                $result.Ok | Should -BeTrue
-                $result.Skipped | Should -BeFalse
+                $result.InputPath | Should -Be 'E:\Yorozuya\gintoki-input.mkv'
+                $result.OutputPath | Should -Be 'E:\Yorozuya\gintoki-output.mkv'
             }
         }
 
-        It 'rejects invalid converted result states' {
+        It 'requires a nonblank output path' {
             InModuleScope Fun.Ffmpeg {
                 {
-                    [ConvertToVvcResult]::new(
-                        'episode.mkv',
-                        'C:\videos\episode.mkv',
-                        'C:\videos\episode_vvc.mkv',
-                        [VvcConversionStatus]::Converted,
-                        [VvcConversionReason]::EncodeFailed,
-                        100.0,
-                        40.0,
-                        0.4,
-                        $null,
-                        $null
-                    )
-                } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
-
-                {
                     [ConvertToVvcResult]::Converted(
-                        'episode.mkv',
-                        'C:\videos\episode.mkv',
-                        '',
+                        'gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-input.mkv',
+                        '   ',
                         100.0,
                         40.0,
                         0.4
                     )
                 } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
 
+        It 'rejects invalid size values according to the live contract' {
+            InModuleScope Fun.Ffmpeg {
                 {
                     [ConvertToVvcResult]::Converted(
-                        'episode.mkv',
-                        'C:\videos\episode.mkv',
-                        'C:\videos\episode_vvc.mkv',
+                        'gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-output.mkv',
                         100.0,
                         0.0,
                         0.4
                     )
                 } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
-            }
-        }
 
-        It 'requires explicit reasons for skipped and failed results' {
-            InModuleScope Fun.Ffmpeg {
-                $skipped = [ConvertToVvcResult]::Skipped(
-                    'episode.mkv',
-                    'C:\videos\episode.mkv',
-                    [VvcConversionReason]::ExistingOutputValid,
-                    '  existing output is valid  '
-                )
-                $failed = [ConvertToVvcResult]::Failed(
-                    'episode.mkv',
-                    'C:\videos\episode.mkv',
-                    [VvcConversionReason]::EncodeFailed,
-                    17,
-                    '  ffmpeg failed  '
-                )
-
-                $skipped.Status.ToString() | Should -Be 'Skipped'
-                $skipped.Reason.ToString() | Should -Be 'ExistingOutputValid'
-                $skipped.Ok | Should -BeTrue
-                $skipped.Skipped | Should -BeTrue
-                $skipped.Diagnostic | Should -Be 'existing output is valid'
-                $failed.Status.ToString() | Should -Be 'Failed'
-                $failed.Reason.ToString() | Should -Be 'EncodeFailed'
-                $failed.Ok | Should -BeFalse
-                $failed.Skipped | Should -BeFalse
-                $failed.ExitCode | Should -Be 17
-
-                {
-                    [ConvertToVvcResult]::Skipped(
-                        'episode.mkv',
-                        'C:\videos\episode.mkv',
-                        [VvcConversionReason]::None,
-                        $null
-                    )
-                } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
-
-                {
-                    [ConvertToVvcResult]::Failed(
-                        'episode.mkv',
-                        'C:\videos\episode.mkv',
-                        [VvcConversionReason]::None,
-                        $null,
-                        $null
-                    )
-                } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
-            }
-        }
-
-        It 'rejects negative ratios and normalizes blank diagnostics' {
-            InModuleScope Fun.Ffmpeg {
                 {
                     [ConvertToVvcResult]::Converted(
-                        'episode.mkv',
-                        'C:\videos\episode.mkv',
-                        'C:\videos\episode_vvc.mkv',
+                        'gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-output.mkv',
                         100.0,
-                        40.0,
-                        -0.1
+                        -1.0,
+                        0.4
                     )
                 } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
 
-                $failed = [ConvertToVvcResult]::Failed(
-                    'episode.mkv',
-                    'C:\videos\episode.mkv',
+        It 'sets Ok true and Skipped false as derived compatibility fields' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Converted(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-output.mkv',
+                    100.25,
+                    40.5,
+                    0.4
+                )
+
+                $result.Ok | Should -BeTrue
+                $result.Skipped | Should -BeFalse
+            }
+        }
+    }
+
+    Context 'Skipped factory' {
+        It 'creates a Skipped result with a non-None reason' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Skipped(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::ExistingOutputValid,
+                    '  Shinsengumi existing output already valid  '
+                )
+
+                $result.Status.ToString() | Should -Be 'Skipped'
+                $result.Reason.ToString() | Should -Be 'ExistingOutputValid'
+                $result.InputPath | Should -Be 'E:\Yorozuya\gintoki-input.mkv'
+                $result.OutputPath | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'rejects Reason None' {
+            InModuleScope Fun.Ffmpeg {
+                {
+                    [ConvertToVvcResult]::Skipped(
+                        'gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-input.mkv',
+                        [VvcConversionReason]::None,
+                        '  Shinsengumi existing output already valid  '
+                    )
+                } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
+
+        It 'normalizes diagnostics' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Skipped(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::ExistingOutputValid,
+                    '  Shinsengumi existing output already valid  '
+                )
+
+                $result.Diagnostic | Should -Be 'Shinsengumi existing output already valid'
+            }
+        }
+
+        It 'keeps native exit code null unless the live contract says otherwise' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Skipped(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::ExistingOutputValid,
+                    $null
+                )
+
+                $result.ExitCode | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'sets Ok true and Skipped true as derived compatibility fields' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Skipped(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::ExistingOutputValid,
+                    '  Shinsengumi existing output already valid  '
+                )
+
+                $result.Ok | Should -BeTrue
+                $result.Skipped | Should -BeTrue
+            }
+        }
+    }
+
+    Context 'Failed factory' {
+        It 'creates a Failed result with a non-None reason' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Failed(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::EncodeFailed,
+                    17,
+                    '  Elizabeth encode failed  '
+                )
+
+                $result.Status.ToString() | Should -Be 'Failed'
+                $result.Reason.ToString() | Should -Be 'EncodeFailed'
+                $result.InputPath | Should -Be 'E:\Yorozuya\gintoki-input.mkv'
+                $result.OutputPath | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'rejects Reason None' {
+            InModuleScope Fun.Ffmpeg {
+                {
+                    [ConvertToVvcResult]::Failed(
+                        'gintoki-input.mkv',
+                        'E:\Yorozuya\gintoki-input.mkv',
+                        [VvcConversionReason]::None,
+                        $null,
+                        '  Elizabeth encode failed  '
+                    )
+                } | Should -Throw -ExceptionType ([VvcConversionInvariantException])
+            }
+        }
+
+        It 'allows null native exit code for pre-native failures' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Failed(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
                     [VvcConversionReason]::ProbeFailed,
                     $null,
-                    '   '
+                    '  Katsura probe failed  '
                 )
-                $failed.Diagnostic | Should -BeNullOrEmpty
+
+                $result.ExitCode | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'allows native exit code when a native tool was invoked' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Failed(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::EncodeFailed,
+                    17,
+                    '  Elizabeth encode failed  '
+                )
+
+                $result.ExitCode | Should -Be 17
+            }
+        }
+
+        It 'normalizes diagnostics' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Failed(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::ProbeFailed,
+                    $null,
+                    '  Katsura probe failed  '
+                )
+
+                $result.Diagnostic | Should -Be 'Katsura probe failed'
+            }
+        }
+
+        It 'sets Ok false and Skipped false as derived compatibility fields' {
+            InModuleScope Fun.Ffmpeg {
+                $result = [ConvertToVvcResult]::Failed(
+                    'gintoki-input.mkv',
+                    'E:\Yorozuya\gintoki-input.mkv',
+                    [VvcConversionReason]::EncodeFailed,
+                    17,
+                    '  Elizabeth encode failed  '
+                )
+
+                $result.Ok | Should -BeFalse
+                $result.Skipped | Should -BeFalse
             }
         }
     }

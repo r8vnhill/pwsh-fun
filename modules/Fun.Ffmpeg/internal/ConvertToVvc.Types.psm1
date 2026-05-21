@@ -253,14 +253,14 @@ class ConvertToVvcResult {
         else {
             [VvcConversionStatus]::Failed
         }
-        $this.Ok = $Ok
-        $this.Skipped = $Skipped
         $this.Reason = if ([string]::IsNullOrWhiteSpace($Reason)) { '' } else { $Reason }
         $this.OriginalMB = [Math]::Round([Math]::Max(0.0, $OriginalMB), 2)
         $this.NewMB = [Math]::Round([Math]::Max(0.0, $NewMB), 2)
         $this.Ratio = [Math]::Round([Math]::Max(0.0, $Ratio), 1)
         $this.ExitCode = $null
         $this.Diagnostic = $null
+        $this.Ok = $this.Status -ne [VvcConversionStatus]::Failed
+        $this.Skipped = $this.Status -eq [VvcConversionStatus]::Skipped
     }
 
     hidden ConvertToVvcResult(

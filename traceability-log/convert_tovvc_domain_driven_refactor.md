@@ -378,7 +378,7 @@ Use factory methods if the constructor becomes hard to read:
 
 Validation outcomes are domain-only.
 
-### Cycle 8 — Add `ConvertToVvcResult` Factories
+### ~~Cycle 8 — Add `ConvertToVvcResult` Factories~~
 
 **Goal:** Make result construction invariant-checked and centralized.
 
@@ -418,6 +418,15 @@ Implement:
 **Refactor**
 
 Prevent ad hoc result creation. Make constructors private if feasible; otherwise document factory-only usage in tests and code review rules.
+
+**Completed**
+
+Cycle 8 is implemented in the current branch.
+
+- `ConvertToVvcResult` factories are the documented domain surface.
+- `Ok` and `Skipped` are derived compatibility fields.
+- The focused `Convert-ToVvc.Domain.Result.Tests.ps1` suite passes.
+- No worker, public command, native-process, or filesystem behavior changed.
 
 **Done when**
 
