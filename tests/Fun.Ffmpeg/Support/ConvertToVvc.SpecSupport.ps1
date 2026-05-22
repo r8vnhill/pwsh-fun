@@ -40,6 +40,30 @@ function New-ValidVvcScenarioSet {
     }
 }
 
+function New-ValidConvertScenarioParams {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $FileName,
+
+        [hashtable] $Override = @{}
+    )
+
+    $params = @{
+        FileName         = $FileName
+        InputContent     = ('Ringu valid source media' * 4096)
+        FfprobeScenarios = New-ValidVvcScenarioSet -FileName $FileName
+        CreateOutput     = $true
+    }
+
+    foreach ($key in @($Override.Keys)) {
+        $params[$key] = $Override[$key]
+    }
+
+    $params
+}
+
 function New-ScenarioLayout {
     param(
         [Parameter(Mandatory)]
@@ -158,6 +182,26 @@ function New-ScenarioExistingOutput {
     Set-Content -LiteralPath $Layout.ExistingOutputPath -Value (
         'preexisting valid vvc output' * 131072
     )
+}
+
+function Assert-ScenarioArtifactState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject] $Scenario,
+
+        [Parameter(Mandatory)]
+        [bool] $ExpectOutput,
+
+        [Parameter(Mandatory)]
+        [bool] $ExpectPartialOutput
+    )
+
+    Test-Path -LiteralPath $Scenario.OutputPath |
+        Should -Be $ExpectOutput
+
+    Test-Path -LiteralPath $Scenario.PartialOutputPath |
+        Should -Be $ExpectPartialOutput
 }
 
 function Invoke-ScenarioCommand {

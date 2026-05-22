@@ -37,11 +37,8 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
 
     Context 'when inputs are convertible' {
         It 'invokes ffmpeg and returns a success-shaped result for a valid input' {
-            $scenarioParams = @{
-                FileName         = 'asakawa-source.mkv'
-                InputContent     = ('synthetic but non-empty media payload' * 4096)
-                FfprobeScenarios = New-ValidVvcScenarioSet -FileName 'asakawa-source.mkv'
-                CreateOutput     = $true
+            $scenarioParams = New-ValidConvertScenarioParams -FileName 'asakawa-source.mkv' -Override @{
+                InputContent = ('synthetic but non-empty media payload' * 4096)
             }
             $scenario = Invoke-ConvertScenario @scenarioParams
 
@@ -53,7 +50,7 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
                 ExpectFfmpeg  = $true
             }
             Assert-ToolInvocationState @toolStateParams
-            (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+            Assert-ScenarioArtifactState -Scenario $scenario -ExpectOutput $true -ExpectPartialOutput $false
         }
     }
 
@@ -62,12 +59,9 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
             @{ Name = 'automatic threads'; EncoderThreads = 0 }
             @{ Name = 'bounded threads'; EncoderThreads = 2 }
         ) {
-            $scenarioParams = @{
-                FileName         = 'ryuji-threaded-encode.mkv'
-                InputContent     = ('threaded media payload' * 4096)
-                FfprobeScenarios = New-ValidVvcScenarioSet -FileName 'ryuji-threaded-encode.mkv'
-                CreateOutput     = $true
-                EncoderThreads   = $EncoderThreads
+            $scenarioParams = New-ValidConvertScenarioParams -FileName 'ryuji-threaded-encode.mkv' -Override @{
+                InputContent   = ('threaded media payload' * 4096)
+                EncoderThreads = $EncoderThreads
             }
             $scenario = Invoke-ConvertScenario @scenarioParams
 
@@ -83,13 +77,10 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
             @{ Name = 'explicit LiteralPath'; UseLiteralPath = $true; UsePipelinePath = $false }
             @{ Name = 'pipeline LiteralPath'; UseLiteralPath = $false; UsePipelinePath = $true }
         ) {
-            $scenarioParams = @{
-                FileName         = 'asakawa-literal-path.mkv'
-                InputContent     = ('literal path media payload' * 4096)
-                FfprobeScenarios = New-ValidVvcScenarioSet -FileName 'asakawa-literal-path.mkv'
-                CreateOutput     = $true
-                UseLiteralPath   = $UseLiteralPath
-                UsePipelinePath  = $UsePipelinePath
+            $scenarioParams = New-ValidConvertScenarioParams -FileName 'asakawa-literal-path.mkv' -Override @{
+                InputContent   = ('literal path media payload' * 4096)
+                UseLiteralPath = $UseLiteralPath
+                UsePipelinePath = $UsePipelinePath
             }
             $scenario = Invoke-ConvertScenario @scenarioParams
 
@@ -101,7 +92,7 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
                 ExpectFfmpeg  = $true
             }
             Assert-ToolInvocationState @toolStateParams
-            (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
+            Assert-ScenarioArtifactState -Scenario $scenario -ExpectOutput $true -ExpectPartialOutput $false
         }
     }
 

@@ -119,6 +119,8 @@ function Assert-ScenarioArtifactState {
 }
 ```
 
+Cycle 2 has been implemented with this narrow support extraction. The invocation suite now uses the shared valid-scenario helper for the basic success, encoder-thread, and literal-path cases, and the artifact helper for the simple output-state checks. Specialized scenarios remain explicit. The known valid-existing-output skip characterization failure remains unchanged.
+
 Keep `Invoke-ConvertScenario` as the main harness. Extend it only for:
 
 - multiple input files in one public invocation
@@ -287,7 +289,7 @@ Baseline verification found an existing invocation-suite failure before the rest
 12 passed, and the valid-existing-output skip scenario failed because the result was not marked skipped. The
 input-validation baseline discovered and passed 2 tests. The cycle does not repair that pre-existing behavior.
 
-### Cycle 2 — Extract scenario setup helpers
+### Cycle 2 — Extract scenario setup helpers [implemented]
 
 - Add focused support tests or small characterization examples for `New-ValidConvertScenarioParams`.
 - Add `New-ValidConvertScenarioParams`.
