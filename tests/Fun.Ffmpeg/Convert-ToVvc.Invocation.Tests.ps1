@@ -3,6 +3,7 @@
 
 BeforeAll {
     . (Join-Path $PSScriptRoot 'Support\FakeMediaTools.ps1')
+    . (Join-Path $PSScriptRoot 'Support\FakeToolArgumentSupport.ps1')
     . (Join-Path $PSScriptRoot 'Support\ConvertToVvc.SpecSupport.ps1')
 
     $toolSupportParams = @{
@@ -54,6 +55,36 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
         }
     }
 
+    Context 'when fake-tool markers are read through support helpers' {
+        It 'reads legacy raw marker text as compatibility argv tokens' {
+            $markerPath = Join-Path $TestDrive 'legacy-fake-tool-marker.txt'
+            Set-Content -LiteralPath $markerPath -Value '-i asakawa-source.mkv -threads 2 output.mkv' -NoNewline
+
+            $marker = Read-FakeToolArguments -MarkerPath $markerPath
+
+            $marker.Format | Should -Be 'LegacyRaw'
+            $marker.Raw | Should -Be '-i asakawa-source.mkv -threads 2 output.mkv'
+            Assert-FakeToolArgumentValue -Argv $marker.Argv -Name '-threads' -ExpectedValue '2'
+        }
+
+        It 'reads future JSON marker text as argv tokens' {
+            $markerPath = Join-Path $TestDrive 'json-fake-tool-marker.txt'
+            $markerJson = @{
+                tool             = 'ffmpeg'
+                argv             = @('-i', 'asakawa-source.mkv', '-threads', '2', 'output.mkv')
+                workingDirectory = 'Nenya'
+            } | ConvertTo-Json -Compress
+            Set-Content -LiteralPath $markerPath -Value $markerJson -NoNewline
+
+            $marker = Read-FakeToolArguments -MarkerPath $markerPath
+
+            $marker.Format | Should -Be 'Json'
+            $marker.ToolName | Should -Be 'ffmpeg'
+            $marker.WorkingDirectory | Should -Be 'Nenya'
+            Assert-FakeToolArgumentValue -Argv $marker.Argv -Name '-threads' -ExpectedValue '2'
+        }
+    }
+
     Context 'when encoder configuration is supplied' {
         It 'passes encoder thread settings to ffmpeg' -ForEach @(
             @{ Name = 'automatic threads'; EncoderThreads = 0 }
@@ -67,8 +98,8 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
 
             Assert-ScenarioSucceeded -Scenario $scenario -FileName 'ryuji-threaded-encode.mkv'
 
-            $ffmpegArgs = Get-Content -LiteralPath $scenario.FfmpegMarker -Raw
-            $ffmpegArgs | Should -Match ('-threads {0}' -f $EncoderThreads)
+            $ffmpegArgs = Read-FakeToolArguments -MarkerPath $scenario.FfmpegMarker
+            Assert-FakeToolArgumentValue -Argv $ffmpegArgs.Argv -Name '-threads' -ExpectedValue ([string] $EncoderThreads)
         }
     }
 

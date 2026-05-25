@@ -303,13 +303,21 @@ Acceptance gate:
 - scenario bodies are shorter
 - no behavior-specific setup is hidden inside defaults
 
-### Cycle 3 — Add structured fake-tool reads before changing writes
+### Cycle 3 — Add structured fake-tool reads before changing writes [implemented]
 
 - Add `Read-FakeToolArguments`.
 - Initially support both raw text and JSON marker formats.
 - Add token-level helper assertions.
 - Update the encoder-thread test to use helper assertions.
 - Keep fake tools writing the old format for this cycle.
+
+Implemented in the workspace:
+
+- `Read-FakeToolArguments` now parses legacy raw markers and JSON markers.
+- `Assert-FakeToolArgumentValue` is available for narrow argv token checks.
+- The invocation suite now includes reader characterization coverage for raw and JSON marker samples.
+- The encoder-thread test now validates `-threads <value>` through the reader helper.
+- `FakeMediaTools.ps1` still writes the legacy marker format.
 
 Acceptance gate:
 
