@@ -15,8 +15,42 @@ function Initialize-FakeMediaToolSupport {
     $ffprobeScript = @'
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
 
+function Write-FakeToolInvocationRecord {
+    param(
+        [Parameter(Mandatory)]
+        [string] $MarkerDirectory,
+
+        [Parameter(Mandatory)]
+        [string] $ToolName,
+
+        [Parameter(Mandatory)]
+        [string[]] $ArgumentList
+    )
+
+    New-Item -ItemType Directory -Path $MarkerDirectory -Force | Out-Null
+
+    $record = [pscustomobject]@{
+        schemaVersion    = 1
+        tool             = $ToolName
+        argv             = @($ArgumentList)
+        workingDirectory = (Get-Location).Path
+        timestampUtc     = [DateTimeOffset]::UtcNow.ToString('o')
+    }
+    $recordName = '{0}-{1}.json' -f `
+        ([DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmssfffffff')), `
+        ([guid]::NewGuid().ToString('N'))
+    $recordPath = Join-Path $MarkerDirectory $recordName
+
+    $record |
+        ConvertTo-Json -Compress -Depth 5 |
+        Set-Content -LiteralPath $recordPath -NoNewline -Encoding utf8NoBOM
+}
+
 if (-not [string]::IsNullOrWhiteSpace($env:FFPROBE_MOCK_MARKER)) {
-    Set-Content -LiteralPath $env:FFPROBE_MOCK_MARKER -Value ($Args -join ' ')
+    Write-FakeToolInvocationRecord `
+        -MarkerDirectory $env:FFPROBE_MOCK_MARKER `
+        -ToolName 'ffprobe' `
+        -ArgumentList $Args
 }
 
 $target = $Args[-1]
@@ -83,6 +117,37 @@ switch ($showEntries) {
     $ffmpegScript = @'
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
 
+function Write-FakeToolInvocationRecord {
+    param(
+        [Parameter(Mandatory)]
+        [string] $MarkerDirectory,
+
+        [Parameter(Mandatory)]
+        [string] $ToolName,
+
+        [Parameter(Mandatory)]
+        [string[]] $ArgumentList
+    )
+
+    New-Item -ItemType Directory -Path $MarkerDirectory -Force | Out-Null
+
+    $record = [pscustomobject]@{
+        schemaVersion    = 1
+        tool             = $ToolName
+        argv             = @($ArgumentList)
+        workingDirectory = (Get-Location).Path
+        timestampUtc     = [DateTimeOffset]::UtcNow.ToString('o')
+    }
+    $recordName = '{0}-{1}.json' -f `
+        ([DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmssfffffff')), `
+        ([guid]::NewGuid().ToString('N'))
+    $recordPath = Join-Path $MarkerDirectory $recordName
+
+    $record |
+        ConvertTo-Json -Compress -Depth 5 |
+        Set-Content -LiteralPath $recordPath -NoNewline -Encoding utf8NoBOM
+}
+
 if ($Args -contains '-encoders') {
     Write-Output ' V..... libvvenc            H.266 / VVC'
     exit 0
@@ -92,7 +157,10 @@ if (
     $Args -contains '-i' -and
     -not [string]::IsNullOrWhiteSpace($env:FFMPEG_MOCK_MARKER)
 ) {
-    Set-Content -LiteralPath $env:FFMPEG_MOCK_MARKER -Value ($Args -join ' ')
+    Write-FakeToolInvocationRecord `
+        -MarkerDirectory $env:FFMPEG_MOCK_MARKER `
+        -ToolName 'ffmpeg' `
+        -ArgumentList $Args
 }
 
 $createOutput = $env:FAKE_FFMPEG_CREATE_OUTPUT -eq '1'

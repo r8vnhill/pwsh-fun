@@ -331,6 +331,15 @@ Acceptance gate:
 - Update all affected marker-consuming VVC tests.
 - Verify invocation and input-validation suites.
 
+Implemented in the workspace:
+
+- Fake `ffmpeg` and `ffprobe` now write JSON marker records under per-tool marker directories.
+- Marker records include `schemaVersion`, `tool`, `argv`, `workingDirectory`, and `timestampUtc`.
+- `Read-FakeToolInvocations` reads directory records in stable filename order.
+- `Read-LatestFakeToolInvocation` supports tests that only care about the final invocation.
+- `Assert-ToolInvocationState` now checks marker directory records instead of marker file existence.
+- The encoder-thread test reads the latest structured `ffmpeg` invocation and validates `-threads <value>`.
+
 Acceptance gate:
 
 - encoder-thread assertion proves `-threads` and its value as separate argv tokens

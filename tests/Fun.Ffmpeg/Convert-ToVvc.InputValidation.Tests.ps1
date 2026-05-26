@@ -3,6 +3,7 @@
 
 BeforeAll {
     . (Join-Path $PSScriptRoot 'Support\FakeMediaTools.ps1')
+    . (Join-Path $PSScriptRoot 'Support\FakeToolArgumentSupport.ps1')
     . (Join-Path $PSScriptRoot 'Support\ConvertToVvc.SpecSupport.ps1')
 
     $toolSupportParams = @{

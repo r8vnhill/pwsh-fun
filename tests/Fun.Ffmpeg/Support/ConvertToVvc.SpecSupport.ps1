@@ -80,8 +80,9 @@ function New-ScenarioLayout {
     ) -Force
     $outputDir = Join-Path $testRoot 'out'
     $inputPath = Join-Path $inputDir.FullName $FileName
-    $ffprobeMarkerPath = Join-Path $testRoot 'ffprobe-invoked.txt'
-    $ffmpegMarkerPath = Join-Path $testRoot 'ffmpeg-invoked.txt'
+    $markerRoot = Join-Path $testRoot 'markers'
+    $ffprobeMarkerPath = Join-Path $markerRoot 'ffprobe'
+    $ffmpegMarkerPath = Join-Path $markerRoot 'ffmpeg'
     $outputPath = Join-Path $outputDir (
         '{0}_vvc.mkv' -f [Path]::GetFileNameWithoutExtension($FileName)
     )
@@ -101,6 +102,9 @@ function New-ScenarioLayout {
     else {
         $null
     }
+
+    New-Item -ItemType Directory -Path $ffprobeMarkerPath, $ffmpegMarkerPath -Force |
+        Out-Null
 
     [pscustomobject]@{
         TestRoot           = $testRoot
@@ -371,8 +375,11 @@ function Assert-ToolInvocationState {
         [bool] $ExpectFfmpeg
     )
 
-    (Test-Path -LiteralPath $Scenario.FfprobeMarker) | Should -Be $ExpectFfprobe
-    (Test-Path -LiteralPath $Scenario.FfmpegMarker) | Should -Be $ExpectFfmpeg
+    $ffprobeInvocations = @(Read-FakeToolInvocations -MarkerPath $Scenario.FfprobeMarker)
+    $ffmpegInvocations = @(Read-FakeToolInvocations -MarkerPath $Scenario.FfmpegMarker)
+
+    ($ffprobeInvocations.Count -gt 0) | Should -Be $ExpectFfprobe
+    ($ffmpegInvocations.Count -gt 0) | Should -Be $ExpectFfmpeg
 }
 
 function Invoke-ConvertScenario {
