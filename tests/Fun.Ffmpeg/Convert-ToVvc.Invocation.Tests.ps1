@@ -160,7 +160,7 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
     }
 
     Context 'when encoder configuration is supplied' {
-        It 'passes encoder thread settings to ffmpeg' -ForEach @(
+        It 'passes encoder thread settings to ffmpeg: <Name>' -ForEach @(
             @{ Name = 'automatic threads'; EncoderThreads = 0 }
             @{ Name = 'bounded threads'; EncoderThreads = 2 }
         ) {
@@ -178,7 +178,7 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
     }
 
     Context 'when paths are bound explicitly or through the pipeline' {
-        It 'supports LiteralPath and pipeline path input' -ForEach @(
+        It 'supports path binding mode: <Name>' -ForEach @(
             @{ Name = 'explicit LiteralPath'; UseLiteralPath = $true; UsePipelinePath = $false }
             @{ Name = 'pipeline LiteralPath'; UseLiteralPath = $false; UsePipelinePath = $true }
         ) {
@@ -197,6 +197,34 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
                 ExpectFfmpeg  = $true
             }
             Assert-ToolInvocationState @toolStateParams
+            Assert-ScenarioArtifactState -Scenario $scenario -ExpectOutput $true -ExpectPartialOutput $false
+        }
+
+        It 'treats path-sensitive filenames as literal paths: <Name>' -ForEach @(
+            @{ Name = 'spaces'; FileName = 'asakawa interview.mkv'; Converts = $true }
+            @{ Name = 'brackets'; FileName = 'cursed-tape[copy].mkv'; Converts = $true }
+            @{ Name = 'uppercase extension is currently filtered out'; FileName = 'ryuji-source.MKV'; Converts = $false }
+        ) {
+            $scenarioParams = New-ValidConvertScenarioParams -FileName $FileName -Override @{
+                InputContent   = ('path-sensitive media payload' * 4096)
+                UseLiteralPath = $true
+            }
+            $scenario = Invoke-ConvertScenario @scenarioParams
+
+            if (-not $Converts) {
+                Assert-ScenarioHasNoResults -Scenario $scenario
+                Assert-ToolInvocationState -Scenario $scenario -ExpectFfprobe $false -ExpectFfmpeg $false
+                return
+            }
+
+            Assert-ScenarioSucceeded -Scenario $scenario -FileName $FileName
+
+            $expectedOutputName = '{0}_vvc.mkv' -f [IO.Path]::GetFileNameWithoutExtension($FileName)
+            [IO.Path]::GetFileName($scenario.OutputPath) | Should -Be $expectedOutputName
+
+            $ffmpegInvocation = Read-LatestFakeToolInvocation -MarkerPath $scenario.FfmpegMarker
+            $ffmpegInvocation.Argv | Should -Contain $scenario.InputPath
+
             Assert-ScenarioArtifactState -Scenario $scenario -ExpectOutput $true -ExpectPartialOutput $false
         }
     }

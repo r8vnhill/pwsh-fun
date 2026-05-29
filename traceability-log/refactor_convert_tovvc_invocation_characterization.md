@@ -324,7 +324,7 @@ Acceptance gate:
 - current marker tests pass through the new reader
 - no fake-tool writer behavior has changed yet
 
-### Cycle 4 — Switch fake tools to structured markers
+### Cycle 4 — Switch fake tools to structured markers [implemented]
 
 - Change fake `ffmpeg` and `ffprobe` writers to JSON.
 - Prefer per-invocation marker records rather than one overwritten marker file.
@@ -346,7 +346,7 @@ Acceptance gate:
 - marker invocation counts are reliable
 - parallel marker accounting is possible without shared-file ambiguity
 
-### Cycle 5 — Improve DDT readability
+### Cycle 5 — Improve DDT readability [implemented]
 
 - Add named `It -ForEach` cases for thread settings.
 - Add named path-binding cases.
@@ -357,6 +357,14 @@ Acceptance gate:
 
 - failed DDT cases show useful names in Pester output
 - path-edge cases assert literal path behavior, not only successful conversion
+
+Implemented in the workspace:
+
+- Encoder thread DDT now interpolates the scenario `Name` in Pester output.
+- Path-binding DDT now names explicit `LiteralPath` and pipeline binding modes.
+- Path-sensitive filename DDT covers spaces, brackets, and the current uppercase-extension behavior.
+- Spaces and brackets assert result identity, derived output name, final artifact state, and the literal input path token in fake `ffmpeg` argv.
+- The uppercase-extension case is characterized as currently filtered out before native probing or encoding.
 
 ### Cycle 6 — Add missing branch coverage
 
