@@ -382,6 +382,35 @@ function Assert-ToolInvocationState {
     ($ffmpegInvocations.Count -gt 0) | Should -Be $ExpectFfmpeg
 }
 
+function Assert-FakeToolInvocationCount {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $MarkerPath,
+
+        [Parameter(Mandatory)]
+        [int] $ExpectedCount
+    )
+
+    @(Read-FakeToolInvocations -MarkerPath $MarkerPath).Count |
+        Should -Be $ExpectedCount
+}
+
+function Assert-FakeToolInvokedWithPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $MarkerPath,
+
+        [Parameter(Mandatory)]
+        [string] $ExpectedPath
+    )
+
+    $invocations = @(Read-FakeToolInvocations -MarkerPath $MarkerPath)
+    @($invocations | Where-Object { $_.Argv -contains $ExpectedPath }).Count |
+        Should -BeGreaterThan 0
+}
+
 function Invoke-ConvertScenario {
     param(
         [Parameter(Mandatory)]
@@ -472,5 +501,62 @@ function Invoke-ConvertScenario {
         FfprobeMarker      = $layout.FfprobeMarker
         FfmpegMarker       = $layout.FfmpegMarker
         Result             = $result
+    }
+}
+
+function Invoke-MultiConvertScenario {
+    param(
+        [Parameter(Mandatory)]
+        [string[]] $FileNames,
+
+        [int] $MaxParallel = 2
+    )
+
+    $testRoot = New-VvcTestRoot
+    $inputDir = New-Item -ItemType Directory -Path (Join-Path $testRoot 'input') -Force
+    $outputDir = Join-Path $testRoot 'out'
+    $markerRoot = Join-Path $testRoot 'markers'
+    $ffprobeMarkerPath = Join-Path $markerRoot 'ffprobe'
+    $ffmpegMarkerPath = Join-Path $markerRoot 'ffmpeg'
+    New-Item -ItemType Directory -Path $ffprobeMarkerPath, $ffmpegMarkerPath -Force |
+        Out-Null
+
+    $ffprobeScenarios = @{}
+    $inputs = @(
+        foreach ($fileName in $FileNames) {
+            $inputPath = Join-Path $inputDir.FullName $fileName
+            Set-Content -LiteralPath $inputPath -Value ('parallel media payload' * 4096)
+
+            $scenarioSet = New-ValidVvcScenarioSet -FileName $fileName
+            foreach ($key in $scenarioSet.Keys) {
+                $ffprobeScenarios[$key] = $scenarioSet[$key]
+            }
+
+            $baseName = [Path]::GetFileNameWithoutExtension($fileName)
+            [pscustomobject]@{
+                FileName          = $fileName
+                InputPath         = $inputPath
+                OutputPath        = Join-Path $outputDir ('{0}_vvc.mkv' -f $baseName)
+                PartialOutputPath = Join-Path $outputDir ('{0}_vvc.__partial__.mkv' -f $baseName)
+            }
+        }
+    )
+
+    Set-FakeMediaToolMarkers -FfprobeMarker $ffprobeMarkerPath -FfmpegMarker $ffmpegMarkerPath
+    Set-FakeFfprobeScenarios -Scenarios $ffprobeScenarios
+    Set-FakeFfmpegBehavior -CreateOutput
+
+    $result = @(
+        Convert-ToVvc -InputDir $inputDir.FullName -OutputDir $outputDir -MaxParallel $MaxParallel
+    )
+
+    [pscustomobject]@{
+        TestRoot      = $testRoot
+        InputDir      = $inputDir.FullName
+        OutputDir     = $outputDir
+        FfprobeMarker = $ffprobeMarkerPath
+        FfmpegMarker  = $ffmpegMarkerPath
+        Inputs        = $inputs
+        Result        = $result
     }
 }

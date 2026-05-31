@@ -366,7 +366,7 @@ Implemented in the workspace:
 - Spaces and brackets assert result identity, derived output name, final artifact state, and the literal input path token in fake `ffmpeg` argv.
 - The uppercase-extension case is characterized as currently filtered out before native probing or encoding.
 
-### Cycle 6 — Add missing branch coverage
+### Cycle 6 — Add missing branch coverage [DONE]
 
 Add scenarios for:
 
@@ -380,6 +380,26 @@ Acceptance gate:
 - output cleanup is explicit
 - fake-tool invocation counts are explicit
 - parallel tests prove isolation across files
+
+Implemented in the workspace:
+
+- Added invalid-existing-output coverage: without `-Overwrite`, an invalid existing VVC output is probed, conversion
+  proceeds, ffmpeg is invoked once, the final output remains, and no partial output is left behind.
+- Added input-probe failure coverage: a failed source probe emits one failed result, keeps ffmpeg uninvoked, and leaves no
+  final or partial output.
+- Added multi-file parallel coverage through a narrow multi-input scenario helper: one public invocation receives two
+  inputs with `MaxParallel = 2`, emits one result per file, produces isolated final outputs, leaves no partial outputs,
+  and proves ffmpeg/ffprobe marker attribution per input.
+
+Focused verification after the cycle:
+
+```powershell
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation.Tests.ps1
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.InputValidation.Tests.ps1
+```
+
+The new Cycle 6 branches pass in the invocation suite. The invocation suite still has the pre-existing valid-existing-
+output skip characterization failure documented in Cycle 1. The input-validation suite passes.
 
 ### Cycle 7 — Final isolation pass
 

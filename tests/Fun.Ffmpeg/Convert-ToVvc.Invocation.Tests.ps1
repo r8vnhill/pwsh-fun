@@ -283,6 +283,27 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
             (Test-Path -LiteralPath $scenario.OutputPath) | Should -BeTrue
             (Test-Path -LiteralPath $scenario.PartialOutputPath) | Should -BeFalse
         }
+
+        It 're-encodes when an invalid output already exists and Overwrite is not set' {
+            $scenarioParams = @{
+                FileName             = 'tomoko-invalid-existing-output.mkv'
+                InputContent         = ('valid source media' * 4096)
+                CreateOutput         = $true
+                FfprobeScenarios     = @{
+                    'tomoko-invalid-existing-output.mkv'     = New-ValidProbeScenario -Codec 'h264'
+                    'tomoko-invalid-existing-output_vvc.mkv' = New-ValidProbeScenario -Codec 'h264'
+                    'tomoko-invalid-existing-output_vvc.__partial__.mkv' = New-ValidProbeScenario -Codec 'vvc'
+                }
+                CreateExistingOutput = $true
+            }
+            $scenario = Invoke-ConvertScenario @scenarioParams
+
+            Assert-ScenarioSucceeded -Scenario $scenario -FileName 'tomoko-invalid-existing-output.mkv'
+
+            Assert-FakeToolInvocationCount -MarkerPath $scenario.FfmpegMarker -ExpectedCount 1
+            Assert-FakeToolInvocationCount -MarkerPath $scenario.FfprobeMarker -ExpectedCount 5
+            Assert-ScenarioArtifactState -Scenario $scenario -ExpectOutput $true -ExpectPartialOutput $false
+        }
     }
 
     Context 'when execution is bypassed' {
@@ -332,6 +353,31 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
     }
 
     Context 'when native tools fail' {
+        It 'returns a failed result when input probing fails and does not invoke ffmpeg' {
+            $scenarioParams = @{
+                FileName         = 'asakawa-probe-fail.mkv'
+                InputContent     = ('synthetic media payload' * 4096)
+                FfprobeScenarios = @{
+                    'asakawa-probe-fail.mkv' = @{
+                        ProbeFailMessage = 'probe failure: unreadable source'
+                    }
+                }
+            }
+            $scenario = Invoke-ConvertScenario @scenarioParams
+
+            $failParams = @{
+                Scenario      = $scenario
+                ReasonPattern = '^invalid input: probe failure: unreadable source$'
+                FileName      = 'asakawa-probe-fail.mkv'
+                OriginalMb    = 'positive'
+            }
+            Assert-ScenarioFailed @failParams
+
+            Assert-FakeToolInvocationCount -MarkerPath $scenario.FfprobeMarker -ExpectedCount 1
+            Assert-FakeToolInvocationCount -MarkerPath $scenario.FfmpegMarker -ExpectedCount 0
+            Assert-ScenarioArtifactState -Scenario $scenario -ExpectOutput $false -ExpectPartialOutput $false
+        }
+
         It 'returns a failed result when ffmpeg exits non-zero and cleans up partial output' {
             $scenarioParams = @{
                 FileName         = 'ryuji-ffmpeg-fail.mkv'
@@ -433,6 +479,30 @@ Describe 'Convert-ToVvc invocation' -Tag 'integration' {
                 ExpectFfmpeg  = $true
             }
             Assert-ToolInvocationState @toolStateParams
+        }
+
+        It 'converts multiple inputs in one parallel invocation with isolated markers and artifacts' {
+            $scenario = Invoke-MultiConvertScenario `
+                -FileNames 'sadako-parallel-one.mkv', 'ryuji-parallel-two.mkv' `
+                -MaxParallel 2
+
+            $scenario.Result.Count | Should -Be 2
+            $scenario.Result.File | Should -Contain 'sadako-parallel-one.mkv'
+            $scenario.Result.File | Should -Contain 'ryuji-parallel-two.mkv'
+            $scenario.Result.Ok | Should -Not -Contain $false
+            $scenario.Result.Skipped | Should -Not -Contain $true
+
+            foreach ($input in $scenario.Inputs) {
+                Test-Path -LiteralPath $input.OutputPath |
+                    Should -BeTrue
+                Test-Path -LiteralPath $input.PartialOutputPath |
+                    Should -BeFalse
+                Assert-FakeToolInvokedWithPath -MarkerPath $scenario.FfmpegMarker -ExpectedPath $input.InputPath
+                Assert-FakeToolInvokedWithPath -MarkerPath $scenario.FfprobeMarker -ExpectedPath $input.InputPath
+            }
+
+            Assert-FakeToolInvocationCount -MarkerPath $scenario.FfmpegMarker -ExpectedCount 2
+            Assert-FakeToolInvocationCount -MarkerPath $scenario.FfprobeMarker -ExpectedCount 8
         }
     }
 }
