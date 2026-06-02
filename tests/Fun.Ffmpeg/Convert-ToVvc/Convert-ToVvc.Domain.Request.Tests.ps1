@@ -1,4 +1,4 @@
-using module ..\..\modules\Fun.Ffmpeg\internal\ConvertToVvc.Types.psm1
+using module ..\..\..\modules\Fun.Ffmpeg\internal\ConvertToVvc.Types.psm1
 
 #Requires -Version 7.5
 #Requires -Modules Pester

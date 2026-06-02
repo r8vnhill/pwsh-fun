@@ -15,7 +15,7 @@ BeforeAll {
     Enable-FakeMediaToolSupport -Context $script:toolSupport
 
     Import-Module -Name (
-        Join-Path $PSScriptRoot '..\..\modules\Fun.Ffmpeg\Fun.Ffmpeg.psd1'
+        Join-Path $PSScriptRoot '..\..\..\modules\Fun.Ffmpeg\Fun.Ffmpeg.psd1'
     ) -Force -ErrorAction Stop
 }
 

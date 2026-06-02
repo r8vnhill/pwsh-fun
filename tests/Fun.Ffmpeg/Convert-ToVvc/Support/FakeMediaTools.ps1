@@ -212,9 +212,12 @@ function Enable-FakeMediaToolSupport {
 
 function Reset-FakeMediaToolEnvironment {
     param(
-        [Parameter(Mandatory)]
         $Context
     )
+
+    if ($null -eq $Context) {
+        return
+    }
 
     $env:PATH = "$($Context.MockDir)$([IO.Path]::PathSeparator)$($Context.OriginalPath)"
     $env:FFMPEG_MOCK_MARKER = $Context.OriginalFfmpegMockMarker
@@ -227,9 +230,12 @@ function Reset-FakeMediaToolEnvironment {
 
 function Restore-FakeMediaToolSupport {
     param(
-        [Parameter(Mandatory)]
         $Context
     )
+
+    if ($null -eq $Context) {
+        return
+    }
 
     $env:PATH = $Context.OriginalPath
     $env:FFMPEG_MOCK_MARKER = $Context.OriginalFfmpegMockMarker

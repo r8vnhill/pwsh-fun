@@ -1,4 +1,4 @@
-# [PLAN] Refactor `Convert-ToVvc` Invocation Characterization
+# [DONE] Refactor `Convert-ToVvc` Invocation Characterization
 
 ## Summary
 
@@ -274,7 +274,7 @@ Expected behavior:
 Acceptance gate:
 
 ```powershell
-Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation.Tests.ps1
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation*.Tests.ps1
 Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.InputValidation.Tests.ps1
 ```
 
@@ -394,24 +394,58 @@ Implemented in the workspace:
 Focused verification after the cycle:
 
 ```powershell
-Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation.Tests.ps1
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation*.Tests.ps1
 Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.InputValidation.Tests.ps1
 ```
 
 The new Cycle 6 branches pass in the invocation suite. The invocation suite still has the pre-existing valid-existing-
 output skip characterization failure documented in Cycle 1. The input-validation suite passes.
 
-### Cycle 7 — Final isolation pass
+### Cycle 7 — Final isolation pass [DONE]
 
 - Keep `BeforeEach` and `AfterEach` reset behavior.
 - Ensure `AfterAll` cannot mask earlier initialization failures.
 - Confirm support helpers do not retain scenario state across examples.
 - Re-run focused suites.
 
+Implemented in the workspace:
+
+- Kept the invocation suite's `BeforeEach` and `AfterEach` fake-tool environment resets in place.
+- Made fake-tool reset/restore support tolerate a missing context so partial initialization failures do not create a
+  secondary parameter-binding failure during cleanup.
+- Wrapped `AfterAll` restore in a narrow `try`/`catch` that reports cleanup failure as a warning instead of masking the
+  earlier suite failure.
+- Added a support-helper isolation characterization proving `New-ValidConvertScenarioParams` creates independent
+  `FfprobeScenarios` hashtables across calls.
+
+Focused verification after the cycle:
+
+```powershell
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation*.Tests.ps1
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.InputValidation.Tests.ps1
+```
+
+The input-validation suite passes. The invocation suite now has 25 passing tests and retains the pre-existing
+valid-existing-output skip characterization failure documented in Cycle 1; no new Cycle 7 failure remains.
+
+Follow-up split:
+
+- Split the oversized invocation characterization file into focused Pester files:
+  - `Convert-ToVvc.Invocation.Tests.ps1` for core successful invocation and encoder configuration.
+  - `Convert-ToVvc.Invocation.Markers.Tests.ps1` for fake-tool marker support.
+  - `Convert-ToVvc.Invocation.Paths.Tests.ps1` for explicit, pipeline, and path-sensitive inputs.
+  - `Convert-ToVvc.Invocation.Output.Tests.ps1` for existing output and bypass behavior.
+  - `Convert-ToVvc.Invocation.Failures.Tests.ps1` for native failure and noisy stream behavior.
+  - `Convert-ToVvc.Invocation.Parallel.Tests.ps1` for parallel worker behavior.
+- Added `Support/ConvertToVvc.InvocationSuite.ps1` so each split file can run independently while sharing the same
+  fake-tool/module setup and cleanup lifecycle.
+- Focused verification with `Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation*.Tests.ps1` keeps the same
+  status: 25 passing tests and the known valid-existing-output skip characterization failure.
+
 Final gate:
 
 ```powershell
-Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation.Tests.ps1
+Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.Invocation*.Tests.ps1
 Invoke-Pester -Path tests/Fun.Ffmpeg/Convert-ToVvc.InputValidation.Tests.ps1
 ```
 
