@@ -69,6 +69,22 @@ foreach ($path in $paths) {
 
 That leaves the original paths in place as junctions, so your tools keep working while the actual data lives on `B:`.
 
+## 🎵 Grabbing audio with `Save-Mp3FromUrl`
+
+`Save-Mp3FromUrl` wraps `yt-dlp` to download a URL and save its audio track as MP3:
+
+```powershell
+Save-Mp3FromUrl -Url 'https://youtu.be/dQw4w9WgXcQ' -OutputPath 'D:\Music'
+```
+
+It also takes pipeline input, so batches work too:
+
+```powershell
+Get-Content .\links.txt | Save-Mp3FromUrl -OutputPath 'D:\Music'
+```
+
+Requires `yt-dlp` on `PATH`.
+
 ## ❓ Why this exists
 
 Because I have OCD.  

@@ -12,7 +12,8 @@
         'Rename-StandardMedia',
         'Install-SSHKey',
         'Remove-DirectoryContents',
-        'Move-AndLinkItem'
+        'Move-AndLinkItem',
+        'Save-Mp3FromUrl'
     )
     CmdletsToExport      = @()
     VariablesToExport    = @()
@@ -28,6 +29,7 @@
                 'video',
                 'cleanup',
                 'ffmpeg',
+                'yt-dlp',
                 'ssh',
                 'symlink',
                 'link',
